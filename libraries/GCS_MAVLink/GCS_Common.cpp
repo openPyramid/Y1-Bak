@@ -2726,6 +2726,42 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
         result = handle_flight_termination(packet);
         break;
 
+	/* -------------------------------------
+    // FC: Beacon Y1 add custom MAV_CMD case.
+    *-------------------------------------*/
+    case MAV_CMD_GET_POINT_A:
+	result = MAV_RESULT_ACCEPTED;
+	send_text(MAV_SEVERITY_CRITICAL, "Get A point.");
+	// hal.console->printf("test haha");
+	// mavlink_msg_fc_heartbeat_send( chan, 8);
+        //result = handle_get_point_A();
+        break;
+    case MAV_CMD_GET_POINT_B:
+	result = MAV_RESULT_ACCEPTED;
+	// mavlink_msg_fc_heartbeat_send( chan, 9);
+        //result = handle_get_point_A();
+        break;
+    case MAV_CMD_CLEAR_POINT_AB:
+	result = MAV_RESULT_ACCEPTED;
+	// mavlink_msg_fc_heartbeat_send( chan, 10);
+        //result = handle_get_point_A();
+        break;
+    case MAV_CMD_START_WORK:
+	result = MAV_RESULT_ACCEPTED;
+	//mavlink_msg_fc_heartbeat_send( chan, 11);
+        //result = handle_get_point_A();
+        break;
+    case MAV_CMD_PAUSE_WORK:
+	result = MAV_RESULT_ACCEPTED;
+	//mavlink_msg_fc_heartbeat_send( chan, 12);
+        //result = handle_get_point_A();
+        break;
+    case MAV_CMD_FINISH_WORK:
+	result = MAV_RESULT_ACCEPTED;
+	//mavlink_msg_fc_heartbeat_send( chan, 13);
+        //result = handle_get_point_A();
+        break;
+
     default:
         result = MAV_RESULT_UNSUPPORTED;
         break;
