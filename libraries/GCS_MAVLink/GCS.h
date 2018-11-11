@@ -23,6 +23,10 @@
 #include <AP_VisualOdom/AP_VisualOdom.h>
 #include <AP_Common/AP_FWVersion.h>
 
+
+#include "beaconParams.h"
+
+
 // check if a message will fit in the payload space available
 #define PAYLOAD_SIZE(chan, id) (GCS_MAVLINK::packet_overhead_chan(chan)+MAVLINK_MSG_ID_ ## id ## _LEN)
 #define HAVE_PAYLOAD_SPACE(chan, id) (comm_get_txspace(chan) >= PAYLOAD_SIZE(chan, id))
@@ -247,6 +251,10 @@ public:
 
 protected:
 
+	BeaconParams beaconParams;
+	virtual uint32_t setBeaconParams() = 0;
+	virtual uint32_t setSpecialPointInfo() = 0;
+	
     virtual bool in_hil_mode() const { return false; }
 
     // overridable method to check for packet acceptance. Allows for
@@ -283,7 +291,11 @@ protected:
     void handle_request_data_stream(mavlink_message_t *msg);
 
     virtual void handle_command_ack(const mavlink_message_t* msg);
-    void handle_set_mode(mavlink_message_t* msg);
+
+	// FC add msg handler.
+	void handle_beacon_message(const mavlink_message_t* msg);
+
+	void handle_set_mode(mavlink_message_t* msg);
     void handle_mission_request_list(AP_Mission &mission, mavlink_message_t *msg);
     void handle_mission_request(AP_Mission &mission, mavlink_message_t *msg);
     void handle_mission_clear_all(AP_Mission &mission, mavlink_message_t *msg);
@@ -340,6 +352,13 @@ protected:
 
     MAV_RESULT handle_command_preflight_set_sensor_offsets(const mavlink_command_long_t &packet);
     MAV_RESULT handle_command_flash_bootloader(const mavlink_command_long_t &packet);
+
+	virtual MAV_RESULT handle_command_get_point_ab(const mavlink_command_long_t &packet) = 0;
+	virtual MAV_RESULT handle_command_clear_point_ab() = 0;
+	virtual MAV_RESULT handle_command_start_work(const mavlink_command_long_t &packet) = 0;
+	virtual MAV_RESULT handle_command_pause_work() = 0;
+	virtual MAV_RESULT handle_command_finish_work() = 0;
+
 
     // generally this should not be overridden; Plane overrides it to ensure
     // failsafe isn't triggered during calibation

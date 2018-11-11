@@ -93,6 +93,7 @@
 #include "AP_Rally.h"           // Rally point library
 #include "AP_Arming.h"
 
+
 // libraries which are dependent on #defines in defines.h and/or config.h
 #if BEACON_ENABLED == ENABLED
  #include <AP_Beacon/AP_Beacon.h>
@@ -202,6 +203,9 @@ public:
     void loop() override;
 
 private:
+	// FC add: beacon params
+	BeaconParams beaconParams;
+
     static const AP_FWVersion fwver;
 
     // key aircraft parameters passed to multiple libraries
