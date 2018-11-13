@@ -79,6 +79,7 @@ enum aux_sw_func {
     AUXSW_USER_FUNC2 =          48, // user function #2
     AUXSW_USER_FUNC3 =          49, // user function #3
     AUXSW_SPRAYER_PUMP_SPD =        50,//sprayer pump speed change
+    AUXSW_ABZZ_SaveWP =        51,          //ABzz mode save way point
     AUXSW_SWITCH_MAX,
 };
 
@@ -114,6 +115,8 @@ enum control_mode_t {
     SMART_RTL =    21,  // SMART_RTL returns to home by retracing its steps
     FLOWHOLD  =    22,  // FLOWHOLD holds position with optical flow without rangefinder
     FOLLOW    =    23,  // follow attempts to follow another vehicle or ground station
+    ZIGZAG    =    24,  // ZIGZAG mode is able to fly in a zigzag manner with predefined point A and point B
+    ABZZ   =   25, // automatic fly with zigzag waypiont with automatic throttle
 };
 
 enum mode_reason_t {
@@ -193,6 +196,14 @@ enum tuning_func {
 #define WP_YAW_BEHAVIOR_LOOK_AT_NEXT_WP               1   // auto pilot will face next waypoint or home during rtl
 #define WP_YAW_BEHAVIOR_LOOK_AT_NEXT_WP_EXCEPT_RTL    2   // auto pilot will face next waypoint except when doing RTL at which time it will stay in it's last
 #define WP_YAW_BEHAVIOR_LOOK_AHEAD                    3   // auto pilot will look ahead during missions and rtl (primarily meant for traditional helicotpers)
+
+// abzz modes
+enum AbzzMode {
+    Abzz_Loiter,
+    Abzz_WP,
+    Abzz_RTL,
+    Abzz_Spline,
+};
 
 // Auto modes
 enum AutoMode {
@@ -392,6 +403,8 @@ enum LoggingParameters {
 #define DATA_WINCH_RELAXED                  68
 #define DATA_WINCH_LENGTH_CONTROL           69
 #define DATA_WINCH_RATE_CONTROL             70
+#define DATA_ZIGZAG_STORE_A                 71
+#define DATA_ZIGZAG_STORE_B                 72
 
 // Error message sub systems and error codes
 #define ERROR_SUBSYSTEM_MAIN                1
