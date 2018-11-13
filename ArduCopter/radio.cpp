@@ -25,6 +25,7 @@ void Copter::init_rc_in()
     channel_pitch    = RC_Channels::rc_channel(rcmap.pitch()-1);
     channel_throttle = RC_Channels::rc_channel(rcmap.throttle()-1);
     channel_yaw      = RC_Channels::rc_channel(rcmap.yaw()-1);
+    channel_speed  = RC_Channels::rc_channel(CH_6);
 
     // set rc channel ranges
     channel_roll->set_angle(ROLL_PITCH_YAW_INPUT_MAX);
@@ -176,7 +177,7 @@ void Copter::set_throttle_zero_flag(int16_t throttle_control)
     uint32_t tnow_ms = millis();
 
     // if not using throttle interlock and non-zero throttle and not E-stopped,
-    // or using motor interlock and it's enabled, then motors are running, 
+    // or using motor interlock and it's enabled, then motors are running,
     // and we are flying. Immediately set as non-zero
     if ((!ap.using_interlock && (throttle_control > 0) && !ap.motor_emergency_stop) ||
         (ap.using_interlock && motors->get_interlock()) ||
