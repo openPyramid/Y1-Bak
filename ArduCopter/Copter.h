@@ -453,7 +453,7 @@ private:
 #if OSD_ENABLED == ENABLED
     AP_OSD osd;
 #endif
-    
+
     // Variables for extended status MAVLink messages
     uint32_t control_sensors_present;
     uint32_t control_sensors_enabled;
@@ -954,6 +954,11 @@ private:
 #endif
 #endif
     ModeAltHold mode_althold;
+
+#if MODE_ABZZ_ENABLED == ENABLED
+    ModeABZz mode_abzz;
+#endif
+
 #if MODE_AUTO_ENABLED == ENABLED
     ModeAuto mode_auto;
 #endif
