@@ -227,6 +227,9 @@ void Copter::ModeLoiter::run()
         // update altitude target and call position controller
         pos_control->set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
         pos_control->update_z_controller();
+
+        //temporary support selecting ab shift direction with RC
+        copter.mode_abzz.save_ab_shiftdir_RC();
         break;
     }
 }
