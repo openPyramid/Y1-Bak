@@ -72,6 +72,12 @@ void Copter::ModeLoiter::precision_loiter_xy()
 }
 #endif
 
+//only valid temporarily in this power time, would not save to flash
+void Copter::ModeLoiter::set_max_speed_xy(float speed_max)
+{
+    loiter_nav->set_pilot_desired_speed_max_temporary(speed_max);
+}
+
 // loiter_run - runs the loiter controller
 // should be called at 100hz or more
 void Copter::ModeLoiter::run()
@@ -104,6 +110,27 @@ void Copter::ModeLoiter::run()
         // get pilot desired climb rate
         target_climb_rate = get_pilot_desired_climb_rate(channel_throttle->get_control_in());
         target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
+
+        //change speed
+        int16_t ch_spd = channel_speed->get_control_in();
+        int16_t section;
+        if(ch_spd<250){
+            section = 100;
+//            gcs().send_text(MAV_SEVERITY_INFO, "ABZZ: speed=100");
+        }else if(ch_spd>=250 && ch_spd <480){
+            section = 300;
+//            gcs().send_text(MAV_SEVERITY_INFO, "ABZZ: speed=300");
+        }else if(ch_spd>=480 && ch_spd <750){
+            section = 500;
+//            gcs().send_text(MAV_SEVERITY_INFO, "ABZZ: speed=500");
+        }else if(ch_spd>=750){
+            section = 700;
+//            gcs().send_text(MAV_SEVERITY_INFO, "ABZZ: speed=700");
+        }
+        if(section!=_override_speed_cms){
+            set_max_speed_xy(section);
+            _override_speed_cms = section;
+        }
     } else {
         // clear out pilot desired acceleration in case radio failsafe event occurs and we do not switch to RTL for some reason
         loiter_nav->clear_pilot_desired_acceleration();
