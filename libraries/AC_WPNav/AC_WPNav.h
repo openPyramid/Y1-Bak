@@ -111,6 +111,9 @@ public:
     /// set_wp_destination waypoint using position vector (distance from ekf origin in cm)
     ///     terrain_alt should be true if destination.z is a desired altitude above terrain
     bool set_wp_destination(const Vector3f& destination, bool terrain_alt = false);
+    
+    /// set_wp_destination waypoint using position vector (distance from ekf origin in cm)
+    bool set_wp_destination_xy(Vector3f& destination);
 
     /// set waypoint destination using NED position vector from ekf origin in meters
     bool set_wp_destination_NED(const Vector3f& destination_NED);
@@ -120,6 +123,10 @@ public:
     ///     returns false on failure (likely caused by missing terrain data)
     bool set_wp_origin_and_destination(const Vector3f& origin, const Vector3f& destination, bool terrain_alt = false);
 
+    //set_wp_origin_and_destination altitude the value, used with set_wp_origin_and_destination_xy()
+    bool set_wp_origin_and_destination_alt(const float target_alt_cm);
+
+    void set_wp_desired_terrain_alt(const uint16_t desired_alt_cm);
     /// shift_wp_origin_to_current_pos - shifts the origin and destination so the origin starts at the current position
     ///     used to reset the position just before takeoff
     ///     relies on set_wp_destination or set_wp_origin_and_destination having been called first
@@ -142,8 +149,13 @@ public:
     /// set_fast_waypoint - set to true to ignore the waypoint radius and consider the waypoint 'reached' the moment the intermediate point reaches it
     void set_fast_waypoint(bool fast) { _flags.fast_waypoint = fast; }
 
+    //update final desired wp alt and alt mode according to manual alt, rangefinder, terrain alt cmd
+    void update_wp_alt(bool manual_alt);
+
     /// update_wpnav - run the wp controller - should be called at 100hz or higher
     bool update_wpnav();
+    bool update_wpnav_agr(bool manual_alt);
+
 
     // check_wp_leash_length - check recalc_wp_leash flag and calls calculate_wp_leash_length() if necessary
     //  should be called after _pos_control.update_xy_controller which may have changed the position controller leash lengths
@@ -211,6 +223,10 @@ public:
     /// advance_wp_target_along_track - move target location along track from origin to destination
     bool advance_wp_target_along_track(float dt);
 
+    /// advance_wp_target_along_track_manual_alt - move target location along track from origin to destination
+    /// accept manual alt change
+    bool advance_wp_target_along_track_manual_alt(float dt, bool manual);
+
     /// return the crosstrack_error - horizontal error of the actual position vs the desired position
     float crosstrack_error() const { return _track_error_xy;}
 
@@ -233,6 +249,9 @@ protected:
         uint8_t new_wp_destination      : 1;    // true if we have just received a new destination.  allows us to freeze the position controller's xy feed forward
         SegmentType segment_type        : 1;    // active segment is either straight or spline
         uint8_t wp_yaw_set              : 1;    // true if yaw target has been set
+        uint8_t _manual_alt          :1;      //true if change alt by throttle manual
+        uint8_t _change_terrain_alt         :1;     //true if we change terrain desired alt
+        uint8_t _rangefinder_failed          :1;    //true if rangefinder is disable or unhealth
     } _flags;
 
     /// calc_slow_down_distance - calculates distance before waypoint that target point should begin to slow-down assuming it is traveling at full speed
@@ -312,4 +331,5 @@ protected:
     AP_Int8     _rangefinder_use;
     bool        _rangefinder_healthy = false;
     float       _rangefinder_alt_cm = 0.0f;
+    uint16_t    _terrain_desired_alt;   //need to be initialized by parameter in cm
 };
