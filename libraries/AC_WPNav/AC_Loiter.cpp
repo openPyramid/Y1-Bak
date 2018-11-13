@@ -90,6 +90,8 @@ void AC_Loiter::init_target(const Vector3f& position)
 {
     sanity_check_params();
 
+    _speed_temp_cms = _speed_cms;
+
     // initialise pos controller speed, acceleration
     _pos_control.set_speed_xy(LOITER_VEL_CORRECTION_MAX);
     _pos_control.set_accel_xy(_accel_cmss);
@@ -117,6 +119,8 @@ void AC_Loiter::init_target()
     const Vector3f& curr_vel = _inav.get_velocity();
 
     sanity_check_params();
+
+    _speed_temp_cms = _speed_cms;
 
     // initialise pos controller speed and acceleration
     _pos_control.set_speed_xy(LOITER_VEL_CORRECTION_MAX);
@@ -148,6 +152,14 @@ void AC_Loiter::soften_for_landing()
     // set target position to current position
     _pos_control.set_xy_target(curr_pos.x, curr_pos.y);
 }
+
+//temporarily set the max speed limit
+void AC_Loiter::set_pilot_desired_speed_max_temporary(const float speed_max)
+{
+    _speed_temp_cms = MIN(_speed_cms, speed_max);
+    _speed_temp_cms = MAX(_speed_temp_cms, LOITER_SPEED_MIN);
+}
+
 
 /// set pilot desired acceleration in centi-degrees
 //   dt should be the time (in seconds) since the last call to this function
@@ -231,6 +243,7 @@ void AC_Loiter::calc_desired_velocity(float nav_dt, float ekfGndSpdLimit)
     // calculate a loiter speed limit which is the minimum of the value set by the LOITER_SPEED
     // parameter and the value set by the EKF to observe optical flow limits
     float gnd_speed_limit_cms = MIN(_speed_cms, ekfGndSpdLimit*100.0f);
+    gnd_speed_limit_cms = MIN(_speed_cms, _speed_temp_cms);
     gnd_speed_limit_cms = MAX(gnd_speed_limit_cms, LOITER_SPEED_MIN);
 
     float pilot_acceleration_max = GRAVITY_MSS*100.0f * tanf(radians(get_angle_max_cd()*0.01f));

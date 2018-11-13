@@ -28,6 +28,9 @@ public:
     /// reduce response for landing
     void soften_for_landing();
 
+    //temporarily set the max speed limit
+    void set_pilot_desired_speed_max_temporary(const float speed_max);
+
     /// set pilot desired acceleration in centi-degrees
     //   dt should be the time (in seconds) since the last call to this function
     void set_pilot_desired_acceleration(float euler_roll_angle_cd, float euler_pitch_angle_cd, float dt);
@@ -90,4 +93,5 @@ protected:
     Vector2f    _predicted_euler_rate;
     float       _brake_timer;
     float       _brake_accel;
+    float       _speed_temp_cms;            //user set the new  max speed , will not over _speed_cms
 };
