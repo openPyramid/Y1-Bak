@@ -19,7 +19,7 @@ void Copter::read_control_switch()
         // no flight mode channel
         return;
     }
-    
+
     uint32_t tnow_ms = millis();
 
     // calculate position of flight mode switch
@@ -434,7 +434,7 @@ void Copter::do_aux_switch_function(int8_t ch_function, uint8_t ch_flag)
                 case AUX_SWITCH_HIGH:
                     sprayer.change_pump_speed(1);
                     break;
-            }        
+            }
 #endif
             break;
 
@@ -754,6 +754,28 @@ void Copter::do_aux_switch_function(int8_t ch_function, uint8_t ch_flag)
             userhook_auxSwitch3(ch_flag);
             break;
 #endif
+
+    case AUXSW_ABZZ_SaveWP:
+#if MODE_ABZZ_ENABLED == ENABLED
+        if (copter.flightmode == &copter.mode_loiter) {
+            if(!motors->armed() || ap.land_complete){
+                 gcs().send_text(MAV_SEVERITY_ERROR, "Loiter: take off first.");
+                 return ;
+            }
+            switch (ch_flag) {
+                case AUX_SWITCH_LOW:
+                    copter.mode_abzz.sample_ab_point(0,copter.current_loc);
+                    break;
+                case AUX_SWITCH_MIDDLE:
+                    break;
+                case AUX_SWITCH_HIGH:
+                    copter.mode_abzz.sample_ab_point(1,copter.current_loc);
+                    break;
+            }
+        }
+#endif
+        break;
+
     }
 }
 
