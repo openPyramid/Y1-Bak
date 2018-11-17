@@ -558,6 +558,11 @@ float Copter::Mode::get_surface_tracking_climb_rate(int16_t target_rate, float c
     return copter.get_surface_tracking_climb_rate(target_rate, current_alt_target, dt);
 }
 
+float Copter::Mode::get_surface_tracking_climb_rate_thro_reset(float pilot_rate, int16_t target_rate, float current_alt_target, float dt)
+{
+     return copter.get_surface_tracking_climb_rate_thro_reset(pilot_rate, target_rate, current_alt_target, dt);
+}
+
 float Copter::Mode::get_pilot_desired_yaw_rate(int16_t stick_angle)
 {
     return copter.get_pilot_desired_yaw_rate(stick_angle);

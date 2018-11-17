@@ -226,6 +226,76 @@ float Copter::get_surface_tracking_climb_rate(int16_t target_rate, float current
 #endif
 }
 
+// get_surface_tracking_climb_rate with reset condition of pilot climb rate return to 0.
+// - hold copter at the desired distance above the ground
+//      returns climb rate (in cm/s) which should be passed to the position controller
+float Copter::get_surface_tracking_climb_rate_thro_reset(float pilot_rate, int16_t target_rate, float current_alt_target, float dt)
+{
+#if RANGEFINDER_ENABLED == ENABLED
+    if (!copter.rangefinder_alt_ok()) {
+        // if rangefinder is not ok, do not use surface tracking
+        return target_rate;
+    }
+
+    static uint32_t last_call_ms = 0;
+    float distance_error;
+    float velocity_correction;
+    float current_alt = inertial_nav.get_altitude();
+
+    uint32_t now = millis();
+
+    target_rangefinder_alt_used = true;
+
+    // reset target altitude if this controller has just been engaged or pilot_rate return to zero
+    if (now - last_call_ms > RANGEFINDER_TIMEOUT_MS || is_zero(pilot_rate)) {
+        target_rangefinder_alt = rangefinder_state.alt_cm + current_alt_target - current_alt;
+    }
+    last_call_ms = now;
+
+    // adjust rangefinder target alt if motors have not hit their limits
+    if ((target_rate<0 && !motors->limit.throttle_lower) || (target_rate>0 && !motors->limit.throttle_upper)) {
+        target_rangefinder_alt += target_rate * dt;
+    }
+
+    /*
+      handle rangefinder glitches. When we get a rangefinder reading
+      more than RANGEFINDER_GLITCH_ALT_CM different from the current
+      rangefinder reading then we consider it a glitch and reject
+      until we get RANGEFINDER_GLITCH_NUM_SAMPLES samples in a
+      row. When that happens we reset the target altitude to the new
+      reading
+     */
+    int32_t glitch_cm = rangefinder_state.alt_cm - target_rangefinder_alt;
+    if (glitch_cm >= RANGEFINDER_GLITCH_ALT_CM) {
+        rangefinder_state.glitch_count = MAX(rangefinder_state.glitch_count+1,1);
+    } else if (glitch_cm <= -RANGEFINDER_GLITCH_ALT_CM) {
+        rangefinder_state.glitch_count = MIN(rangefinder_state.glitch_count-1,-1);
+    } else {
+        rangefinder_state.glitch_count = 0;
+    }
+    if (abs(rangefinder_state.glitch_count) >= RANGEFINDER_GLITCH_NUM_SAMPLES) {
+        // shift to the new rangefinder reading
+        target_rangefinder_alt = rangefinder_state.alt_cm;
+        rangefinder_state.glitch_count = 0;
+    }
+    if (rangefinder_state.glitch_count != 0) {
+        // we are currently glitching, just use the target rate
+        return target_rate;
+    }
+
+    // calc desired velocity correction from target rangefinder alt vs actual rangefinder alt (remove the error already passed to Altitude controller to avoid oscillations)
+    distance_error = (target_rangefinder_alt - rangefinder_state.alt_cm) - (current_alt_target - current_alt);
+    velocity_correction = distance_error * g.rangefinder_gain;
+    velocity_correction = constrain_float(velocity_correction, -THR_SURFACE_TRACKING_VELZ_MAX, THR_SURFACE_TRACKING_VELZ_MAX);
+
+    // return combined pilot climb rate + rate to correct rangefinder alt error
+    return (target_rate + velocity_correction);
+#else
+    return (float)target_rate;
+#endif
+}
+
+
 // get target climb rate reduced to avoid obstacles and altitude fence
 float Copter::get_avoidance_adjusted_climbrate(float target_rate)
 {
