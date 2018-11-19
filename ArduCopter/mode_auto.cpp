@@ -209,7 +209,8 @@ void Copter::ModeAuto::wp_start(const Location_Class& dest_loc)
     // initialise yaw
     // To-Do: reset the yaw only when the previous navigation command is not a WP.  this would allow removing the special check for ROI
     if (auto_yaw.mode() != AUTO_YAW_ROI) {
-        auto_yaw.set_mode_to_default(false);
+        //auto_yaw.set_mode_to_default(false);
+		auto_yaw.set_fixed_yaw(30, 0, 1, 0);
     }
 }
 
