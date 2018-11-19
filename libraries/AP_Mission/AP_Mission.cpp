@@ -111,6 +111,14 @@ void AP_Mission::resume()
         return;
     }
 
+	
+	if(_nav_cmd.index > 0){
+		_nav_cmd.index = _nav_cmd.index - 1;	
+
+		_nav_cmd.content.location.lat = -353632490;
+		_nav_cmd.content.location.lng = 1491651186;
+	}
+
     // restart active navigation command. We run these on resume()
     // regardless of whether the mission was stopped, as we may be
     // re-entering AUTO mode and the nav_cmd callback needs to be run
@@ -1745,11 +1753,11 @@ bool AP_Mission::jump_to_landing_sequence(void)
             resume();
         }
 
-        gcs().send_text(MAV_SEVERITY_INFO, "Landing sequence start");
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "Landing sequence start");
         return true;
     }
 
-    gcs().send_text(MAV_SEVERITY_WARNING, "Unable to start landing sequence");
+    gcs().send_text(MAV_SEVERITY_CRITICAL, "Unable to start landing sequence");
     return false;
 }
 
