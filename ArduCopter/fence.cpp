@@ -36,10 +36,20 @@ void Copter::fence_check()
                 if (fence.get_action() == AC_FENCE_ACTION_ALWAYS_LAND) {
                     set_mode(LAND, MODE_REASON_FENCE_BREACH);
                 } else if (fence.get_breach_distance(new_breaches) <= AC_FENCE_GIVE_UP_DISTANCE) {
-                    if (!set_mode(RTL, MODE_REASON_FENCE_BREACH)) {
-                        set_mode(LAND, MODE_REASON_FENCE_BREACH);
-                        // if we are within 100m of the fence, RTL
-                    }
+                	if(fence.get_action() == AC_FENCE_ACTION_RTL_AND_LAND){
+	                    if (!set_mode(RTL, MODE_REASON_FENCE_BREACH)) {
+	                        set_mode(LAND, MODE_REASON_FENCE_BREACH);
+	                        // if we are within 100m of the fence, RTL
+	                    }
+                	}
+					else if(fence.get_action() == AC_FENCE_ACTION_LOITER){
+						 if (!set_mode(LOITER, MODE_REASON_FENCE_BREACH)) {
+	                        if(!set_mode(RTL, MODE_REASON_FENCE_BREACH)){
+								set_mode(LAND,  MODE_REASON_FENCE_BREACH);    
+							}
+	                        // if we are within 100m of the fence, RTL
+	                    }
+					}
                 } else {
                     // if more than 100m outside the fence just force a land
                     set_mode(LAND, MODE_REASON_FENCE_BREACH);

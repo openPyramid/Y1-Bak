@@ -13,12 +13,12 @@
 [submodule "modules/gbenchmark"]
 	path = modules/gbenchmark
 	url = git://github.com/google/benchmark.git
-[submodule "modules/mavlink"]
-	path = modules/mavlink
-	url = git@github.com:beacon2018/mavlink.git
 [submodule "gtest"]
 	path = modules/gtest
 	url = git://github.com/ArduPilot/googletest
 [submodule "modules/ChibiOS"]
 	path = modules/ChibiOS
 	url = git://github.com/ArduPilot/ChibiOS.git
+[submodule "modules/mavlink"]
+	path = modules/mavlink
+	url = https://github.com/goredhawk/mavlink-1.git

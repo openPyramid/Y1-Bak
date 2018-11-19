@@ -678,6 +678,8 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
+
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get WP, %d, cmd: %d, %f, %f\n\r", seq, packet.command, packet.x, packet.y); 
     } else {
         mavlink_mission_item_int_t packet;
         mavlink_msg_mission_item_int_decode(msg, &packet);
@@ -690,6 +692,8 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
+		
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get WP, %d, cmd: %d, cur: %d, %f, %f\n\r", seq, packet.command, current, packet.param1, packet.param2); 
     }
 
     if (current == 2) {                                               
@@ -1406,6 +1410,8 @@ void GCS_MAVLINK::handle_set_mode(mavlink_message_t* msg)
     const uint32_t _custom_mode = packet.custom_mode;
 
     const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
+
+	gcs().send_text(MAV_SEVERITY_CRITICAL, "set mode bm %d, cm %d\n\r", _base_mode, _custom_mode); 
 
     // send ACK or NAK
     mavlink_msg_command_ack_send_buf(msg, chan, MAVLINK_MSG_ID_SET_MODE, result);
@@ -2810,6 +2816,8 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
 {
     MAV_RESULT result = MAV_RESULT_FAILED;
 
+//	gcs().send_text(MAV_SEVERITY_CRITICAL, "get command msg: %d\n\r", packet.command); 
+
     switch (packet.command) {
 
     case MAV_CMD_DO_SET_MODE:
@@ -2900,7 +2908,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
     *-------------------------------------*/
     case MAV_CMD_GET_POINT_A:
     case MAV_CMD_GET_POINT_B:
-		result = handle_command_get_point_ab(packet);
+		// result = handle_command_get_point_ab(packet);
 
 		// TODO: For test only, 
 		if(MAV_CMD_GET_POINT_A == packet.command){
