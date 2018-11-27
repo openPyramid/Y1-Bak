@@ -120,6 +120,8 @@ public:
     ///     returns false on failure (likely caused by missing terrain data)
     bool set_wp_origin_and_destination(const Vector3f& origin, const Vector3f& destination, bool terrain_alt = false);
 
+	void change_wp_origin_alt(float delta);
+
     /// shift_wp_origin_to_current_pos - shifts the origin and destination so the origin starts at the current position
     ///     used to reset the position just before takeoff
     ///     relies on set_wp_destination or set_wp_origin_and_destination having been called first
