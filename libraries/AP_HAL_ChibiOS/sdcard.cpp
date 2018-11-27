@@ -59,10 +59,10 @@ void sdcard_init()
         } else {
             printf("Successfully mounted SDCard..\n");
         }
-#if HAL_CHIBIOS_ARCH_Y1_0
+#if defined(HAL_CHIBIOS_ARCH_Y1_0) && (HAL_CHIBIOS_ARCH_Y1_0==1)
         //Create Y1_0 Directory
         mkdir("/Y1_0", 0777);
-#elif
+#else
         //Create APM Directory
         mkdir("/APM", 0777);
 #endif
