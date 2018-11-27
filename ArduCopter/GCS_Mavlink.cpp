@@ -472,12 +472,13 @@ static const ap_message STREAM_EXTENDED_STATUS_msgs[] = {
     MSG_EXTENDED_STATUS2, // MEMINFO
     MSG_CURRENT_WAYPOINT, // MISSION_CURRENT
     MSG_GPS_RAW,
-    MSG_GPS_RTK,
+    //MSG_GPS_RTK,
     MSG_GPS2_RAW,
-    MSG_GPS2_RTK,
-    MSG_NAV_CONTROLLER_OUTPUT,
-    MSG_FENCE_STATUS,
-    MSG_POSITION_TARGET_GLOBAL_INT,
+    //MSG_GPS2_RTK,
+    //MSG_NAV_CONTROLLER_OUTPUT,
+    //MSG_FENCE_STATUS,
+    //MSG_POSITION_TARGET_GLOBAL_INT,
+    MSG_SYSTEM_TIME,
 };
 static const ap_message STREAM_POSITION_msgs[] = {
     MSG_LOCATION,
@@ -500,7 +501,7 @@ static const ap_message STREAM_EXTRA2_msgs[] = {
 static const ap_message STREAM_EXTRA3_msgs[] = {
     MSG_AHRS,
     MSG_HWSTATUS,
-    MSG_SYSTEM_TIME,
+    // MSG_SYSTEM_TIME, //fc: move to STREAM_EXTENDED_STATUS_msgs
     MSG_RANGEFINDER,
 #if AP_TERRAIN_AVAILABLE && AC_TERRAIN
     MSG_TERRAIN,
@@ -956,7 +957,11 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
                 copter.set_auto_armed(true);
                 if (copter.mission.state() != AP_Mission::MISSION_RUNNING) {
                     copter.mission.start_or_resume();
+
+					gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 1 \n\r"); 
                 }
+
+				gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 2 \n\r"); 
                 result = MAV_RESULT_ACCEPTED;
             }
             break;
@@ -1809,6 +1814,7 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_pause_work()
     gcs().send_text(MAV_SEVERITY_DEBUG, "In handle pause work");
 
     if(copter.flightmode == &copter.mode_auto){
+		copter.set_mode(LOITER, MODE_REASON_GCS_COMMAND);
         result = MAV_RESULT_ACCEPTED;
 #if MODE_ABZZ_ENABLED == ENABLED
     }else if(copter.flightmode == &copter.mode_abzz){
@@ -1831,6 +1837,7 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_finish_work()
      MAV_RESULT result = MAV_RESULT_FAILED;
 
     if(copter.flightmode == &copter.mode_auto){
+		copter.set_mode(LOITER, MODE_REASON_GCS_COMMAND);
         result = MAV_RESULT_ACCEPTED;
 #if MODE_ABZZ_ENABLED == ENABLED
     }else if(copter.flightmode == &copter.mode_abzz){

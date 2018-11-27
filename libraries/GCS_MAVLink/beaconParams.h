@@ -27,9 +27,9 @@ public:
    BeaconParams()
     {
     	funtionMask = 0;
-		height = 250;
+		height = 1250;
 		width = 500;
-		velocity = 400;
+		velocity = 600;
 		flow = 0;
 
 		aPointLatitude = 0;
