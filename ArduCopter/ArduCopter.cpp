@@ -410,6 +410,55 @@ void Copter::three_hz_loop()
 
     // update ch6 in flight tuning
     tuning();
+
+	getAutoBreakPoint();	
+}
+
+void Copter::getAutoBreakPoint(void)
+{
+	static Mode *flightmodeBak;
+	static uint8_t getBreakPointMS = 0;
+	static uint16_t autoCmdIndexBak;
+	switch(getBreakPointMS){
+
+	case 0: // auto init
+		if (&mode_auto == flightmode){
+			getBreakPointMS = 1;
+
+			autoCmdIndexBak = copter.mission.get_current_nav_index();
+		}
+		break;
+	case 1: // auto is running
+		if(&mode_auto == flightmode){
+			if(copter.mission.get_current_nav_index() != autoCmdIndexBak){
+				getBreakPointMS = 2;
+			}
+		}
+		else{
+			getBreakPointMS = 0;
+		}
+			
+		break;
+	case 2:
+		if(flightmodeBak != &mode_auto){
+			getBreakPointMS = 0;
+
+			// TODO: add code to escape complete issue.
+			copter.beaconParams.breakPointLatitude = copter.current_loc.lat;
+			copter.beaconParams.breakPointLongitude = copter.current_loc.lng;
+			copter.beaconParams.seqOfNextWayPoint = copter.mission.get_current_nav_index();
+
+			// gcs().try_send_message(MSG_BEACON_BREAKPOINT);
+			gcs().send_message(MSG_BEACON_BREAKPOINT);
+			gcs().send_text(MAV_SEVERITY_CRITICAL, "g lat %d, lng %d, index is %d\n\r", copter.beaconParams.breakPointLatitude, copter.beaconParams.breakPointLatitude, copter.beaconParams.seqOfNextWayPoint );
+		}
+		break;
+		
+	default:
+		break;
+	}
+
+ 	flightmodeBak = flightmode;
 }
 
 // one_hz_loop - runs at 1Hz
