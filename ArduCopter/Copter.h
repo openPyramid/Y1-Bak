@@ -949,6 +949,9 @@ private:
     void userhook_auxSwitch2(uint8_t ch_flag);
     void userhook_auxSwitch3(uint8_t ch_flag);
 
+	// for beacon get break point
+	void getAutoBreakPoint(void);
+
 #include "mode.h"
 
     Mode *flightmode;
