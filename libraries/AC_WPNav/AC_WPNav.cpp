@@ -282,7 +282,7 @@ bool AC_WPNav::set_wp_origin_and_destination(const Vector3f& origin, const Vecto
 {
     // store origin and destination locations
     _origin = origin;
-    _destination = destination;
+    _destination = destination;	
     _terrain_alt = terrain_alt;
     Vector3f pos_delta = _destination - _origin;
 
@@ -341,6 +341,11 @@ bool AC_WPNav::set_wp_origin_and_destination_alt(const float target_alt_cm)
 //    //we change the alt use flag new waypoint so we can freeze the pos controller's feed forward and smooth the transition
 //    _flags.new_wp_destination = true;
     return true;
+}
+
+void AC_WPNav::change_wp_origin_alt(float delta)
+{
+    _origin.z = _origin.z + delta;
 }
 
 
@@ -722,7 +727,7 @@ bool AC_WPNav::update_wpnav()
     if (dt >= 0.2f) {
         dt = 0.0f;
     }
-
+	
     // allow the accel and speed values to be set without changing
     // out of auto mode. This makes it easier to tune auto flight
     _pos_control.set_accel_xy(_wp_accel_cmss);

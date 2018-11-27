@@ -66,6 +66,8 @@ void AP_Mission::start()
 {
     _flags.state = MISSION_RUNNING;
 
+	hal.console->printf("start mission-----------");
+
     reset(); // reset mission to the first command, resets jump tracking
     
     // advance to the first command
@@ -85,6 +87,7 @@ void AP_Mission::stop()
 ///     previous running commands will be re-initialized
 void AP_Mission::resume()
 {
+	hal.console->printf("from resume.");
     // if mission had completed then start it from the first command
     if (_flags.state == MISSION_COMPLETE) {
         start();
@@ -112,11 +115,11 @@ void AP_Mission::resume()
     }
 
 	
-	if(_nav_cmd.index > 0){
+	if(_nav_cmd.index > 1){
 		_nav_cmd.index = _nav_cmd.index - 1;	
 
-		_nav_cmd.content.location.lat = -353632490;
-		_nav_cmd.content.location.lng = 1491651186;
+		_nav_cmd.content.location.lat = 0;
+		_nav_cmd.content.location.lng = 0;
 	}
 
     // restart active navigation command. We run these on resume()
@@ -170,6 +173,7 @@ bool AP_Mission::starts_with_takeoff_cmd()
 /// start_or_resume - if MIS_AUTORESTART=0 this will call resume(), otherwise it will call start()
 void AP_Mission::start_or_resume()
 {
+	hal.console->printf("from start or resume.");
     if (_restart) {
         start();
     } else {
@@ -226,7 +230,7 @@ void AP_Mission::truncate(uint16_t index)
 ///     should be called at 10hz or higher
 void AP_Mission::update()
 {
-    // exit immediately if not running or no mission commands
+	// exit immediately if not running or no mission commands
     if (_flags.state != MISSION_RUNNING || _cmd_total == 0) {
         return;
     }
@@ -1446,6 +1450,7 @@ bool AP_Mission::advance_current_nav_cmd()
             if (!(cmd.content.location.lat == 0 && cmd.content.location.lng == 0)) {
                 _prev_nav_cmd_wp_index = _nav_cmd.index;
             }
+			
             // set current navigation command and start it
             _nav_cmd = cmd;
             _flags.nav_cmd_loaded = true;
