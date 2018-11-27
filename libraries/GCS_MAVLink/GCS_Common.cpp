@@ -678,12 +678,10 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
-
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "get WP, %d, cmd: %d, %f, %f\n\r", seq, packet.command, packet.x, packet.y); 
     } else {
         mavlink_mission_item_int_t packet;
         mavlink_msg_mission_item_int_decode(msg, &packet);
-        
+		
         // convert mavlink packet to mission command
         result = AP_Mission::mavlink_int_to_mission_cmd(packet, cmd);
         if (result != MAV_MISSION_ACCEPTED) {
@@ -692,8 +690,6 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
-		
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "get WP, %d, cmd: %d, cur: %d, %f, %f\n\r", seq, packet.command, current, packet.param1, packet.param2); 
     }
 
     if (current == 2) {                                               
@@ -2297,7 +2293,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 		beaconParams.velocity = packet.speed;
 		beaconParams.flow = packet.flow;
 
-		// send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, height %d, widht %d, speed %d, flow %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
+		//send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, height %d, widht %d, speed %d, flow %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
 		setBeaconParams();
 
 		// ACK
@@ -2908,16 +2904,18 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
     *-------------------------------------*/
     case MAV_CMD_GET_POINT_A:
     case MAV_CMD_GET_POINT_B:
-		// result = handle_command_get_point_ab(packet);
+	 	 // result = handle_command_get_point_ab(packet);
 
 		// TODO: For test only, 
 		if(MAV_CMD_GET_POINT_A == packet.command){
 			//mavlink_msg_special_point_info_send(chan, 2, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
-			mavlink_msg_special_point_info_send(chan, 2, 0, 0, 225743600, 1141234567);
+			// mavlink_msg_special_point_info_send(chan, 2, 0, 0, copter.current_loc.lat, copter.current_loc.lng);
 		}else{
 			//mavlink_msg_special_point_info_send(chan, 3, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
-			mavlink_msg_special_point_info_send(chan, 3, 0, 0, 225740000, 1141234067);
+			// mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.current_loc.lat, copter.current_loc.lng);
 		}
+
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get a b point \n\r"); 
 		
 		result = MAV_RESULT_ACCEPTED;
         break;
@@ -2931,7 +2929,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
         break;
 	
     case MAV_CMD_START_WORK:
-		result = handle_command_start_work(packet);
+		// result = handle_command_start_work(packet);
 		result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_PAUSE_WORK:
@@ -3237,6 +3235,21 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
 #endif
         break;
     }
+	case MSG_BEACON_BREAKPOINT:
+		mavlink_msg_special_point_info_send(chan, 1, 8, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "send beacon breakpoint --------\n\r"); 
+		break;
+	case MSG_BEACON_COMPLETE:
+		mavlink_msg_command_long_send(
+            chan,
+            0,
+            0,
+            MAV_CMD_FINISH_WORK,
+            0,
+            0,
+            0, 0, 0, 0, 0, 0);
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "beacon complete work send (cmd)\n\r"); 
+		break;
 
     default:
         // try_send_message must always at some stage return true for
