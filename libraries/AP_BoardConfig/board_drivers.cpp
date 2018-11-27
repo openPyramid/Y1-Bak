@@ -89,6 +89,7 @@ void AP_BoardConfig::board_setup_drivers(void)
     case PX4_BOARD_PIXHAWK:
     case PX4_BOARD_PIXHAWK2:
     case PX4_BOARD_FMUV5:
+    case PX4_BOARD_Y1_0:
     case PX4_BOARD_SP01:
     case PX4_BOARD_PIXRACER:
     case PX4_BOARD_PHMINI:
@@ -272,6 +273,8 @@ void AP_BoardConfig::board_autodetect(void)
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V54)
     state.board_type.set_and_notify(VRX_BOARD_BRAIN54);
     hal.console->printf("Detected VR Brain 5.4\n");
+#elif defined(HAL_CHIBIOS_ARCH_Y1_0)
+    state.board_type.set_and_notify(PX4_BOARD_Y1_0);
 #endif
 
 }

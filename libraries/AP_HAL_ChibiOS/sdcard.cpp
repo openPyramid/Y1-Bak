@@ -59,8 +59,13 @@ void sdcard_init()
         } else {
             printf("Successfully mounted SDCard..\n");
         }
+#if HAL_CHIBIOS_ARCH_Y1_0
+        //Create Y1_0 Directory
+        mkdir("/Y1_0", 0777);
+#elif
         //Create APM Directory
         mkdir("/APM", 0777);
+#endif
     }
 #elif HAL_USE_MMC_SPI
     device = AP_HAL::get_HAL().spi->get_device("sdcard");
