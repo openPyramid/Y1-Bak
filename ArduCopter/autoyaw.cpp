@@ -101,7 +101,7 @@ void Copter::Mode::AutoYaw::set_mode(autopilot_yaw_mode yaw_mode)
 void Copter::Mode::AutoYaw::set_fixed_yaw(float angle_deg, float turn_rate_dps, int8_t direction, bool relative_angle)
 {
     const int32_t curr_yaw_target = copter.attitude_control->get_att_target_euler_cd().z;
-
+	
     // calculate final angle as relative to vehicle heading or absolute
     if (!relative_angle) {
         // absolute angle

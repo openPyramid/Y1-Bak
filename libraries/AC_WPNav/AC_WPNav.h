@@ -127,6 +127,9 @@ public:
     bool set_wp_origin_and_destination_alt(const float target_alt_cm);
 
     void set_wp_desired_terrain_alt(const uint16_t desired_alt_cm);
+
+	void change_wp_origin_alt(float delta);
+
     /// shift_wp_origin_to_current_pos - shifts the origin and destination so the origin starts at the current position
     ///     used to reset the position just before takeoff
     ///     relies on set_wp_destination or set_wp_origin_and_destination having been called first

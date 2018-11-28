@@ -386,7 +386,7 @@ const AP_Param::GroupInfo GCS_MAVLINK::var_info[] = {
     // @Range: 0 10
     // @Increment: 1
     // @User: Advanced
-    AP_GROUPINFO("EXT_STAT", 1, GCS_MAVLINK, streamRates[1],  0),
+    AP_GROUPINFO("EXT_STAT", 1, GCS_MAVLINK, streamRates[1],  2),
 
     // @Param: RC_CHAN
     // @DisplayName: RC Channel stream rate to ground station
@@ -472,12 +472,13 @@ static const ap_message STREAM_EXTENDED_STATUS_msgs[] = {
     MSG_EXTENDED_STATUS2, // MEMINFO
     MSG_CURRENT_WAYPOINT, // MISSION_CURRENT
     MSG_GPS_RAW,
-    MSG_GPS_RTK,
+    //MSG_GPS_RTK,
     MSG_GPS2_RAW,
-    MSG_GPS2_RTK,
-    MSG_NAV_CONTROLLER_OUTPUT,
-    MSG_FENCE_STATUS,
-    MSG_POSITION_TARGET_GLOBAL_INT,
+    //MSG_GPS2_RTK,
+    //MSG_NAV_CONTROLLER_OUTPUT,
+    //MSG_FENCE_STATUS,
+    //MSG_POSITION_TARGET_GLOBAL_INT,
+    MSG_SYSTEM_TIME,
 };
 static const ap_message STREAM_POSITION_msgs[] = {
     MSG_LOCATION,
@@ -500,7 +501,7 @@ static const ap_message STREAM_EXTRA2_msgs[] = {
 static const ap_message STREAM_EXTRA3_msgs[] = {
     MSG_AHRS,
     MSG_HWSTATUS,
-    MSG_SYSTEM_TIME,
+    // MSG_SYSTEM_TIME, //fc: move to STREAM_EXTENDED_STATUS_msgs
     MSG_RANGEFINDER,
 #if AP_TERRAIN_AVAILABLE && AC_TERRAIN
     MSG_TERRAIN,
@@ -613,7 +614,10 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
     case MAVLINK_MSG_ID_HEARTBEAT:      // MAV ID: 0
     {
         // We keep track of the last time we received a heartbeat from our GCS for failsafe purposes
-        if(msg->sysid != copter.g.sysid_my_gcs) break;
+        if(msg->sysid != copter.g.sysid_my_gcs) 
+		{
+			break;
+        }		
         copter.failsafe.last_heartbeat_ms = AP_HAL::millis();
         break;
     }
@@ -953,7 +957,11 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
                 copter.set_auto_armed(true);
                 if (copter.mission.state() != AP_Mission::MISSION_RUNNING) {
                     copter.mission.start_or_resume();
+
+					gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 1 \n\r"); 
                 }
+
+				gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 2 \n\r"); 
                 result = MAV_RESULT_ACCEPTED;
             }
             break;
@@ -1722,3 +1730,150 @@ bool GCS_MAVLINK_Copter::set_mode(const uint8_t mode)
 #endif
     return copter.set_mode((control_mode_t)mode, MODE_REASON_GCS_COMMAND);
 }
+
+
+/********************** xiao deng add handler  *********************/
+
+MAV_RESULT GCS_MAVLINK_Copter::handle_command_get_point_ab(const mavlink_command_long_t &packet)
+{
+#if MODE_ABZZ_ENABLED == ENABLED
+    if(copter.flightmode == &copter.mode_loiter) {
+        if(!copter.motors->armed() || copter.ap.land_complete){
+             gcs().send_text(MAV_SEVERITY_ERROR, "take off first.");
+             return MAV_RESULT_DENIED;
+        }
+
+        if(packet.command == MAV_CMD_GET_POINT_A){
+            copter.mode_abzz.sample_ab_point(0,copter.current_loc);
+			beaconParams.aPointLatitude = copter.current_loc.lat;
+			beaconParams.aPointLongitude = copter.current_loc.lng;
+			setSpecialPointInfo();
+        }else{
+            copter.mode_abzz.sample_ab_point(1,copter.current_loc);
+			beaconParams.bPointLatitude = copter.current_loc.lat;
+			beaconParams.bPointLongitude = copter.current_loc.lng;
+			setSpecialPointInfo();
+        }
+
+        return MAV_RESULT_ACCEPTED;
+    }else{
+        gcs().send_text(MAV_SEVERITY_ERROR, "Not in ab setting mode.");
+        return MAV_RESULT_DENIED;
+    }
+#else
+    return MAV_RESULT_UNSUPPORTED;
+#endif
+
+}
+
+MAV_RESULT GCS_MAVLINK_Copter::handle_command_clear_point_ab()
+{
+#if MODE_ABZZ_ENABLED == ENABLED
+    if(copter.flightmode != &copter.mode_abzz) {
+        if(copter.mode_abzz.clear_ab_point()){
+            return MAV_RESULT_ACCEPTED;
+        }else{
+            gcs().send_text(MAV_SEVERITY_ERROR, "failed to clear AB point");
+            return MAV_RESULT_DENIED;                
+        }
+    }else{
+        gcs().send_text(MAV_SEVERITY_ERROR, "Not in ab setting mode.");
+        return MAV_RESULT_DENIED;
+    }
+#else
+    return MAV_RESULT_UNSUPPORTED;
+#endif
+}
+
+MAV_RESULT GCS_MAVLINK_Copter::handle_command_start_work(const mavlink_command_long_t &packet)
+{
+    MAV_RESULT result = MAV_RESULT_FAILED;
+    if(copter.flightmode == &copter.mode_loiter) {
+        //1define as auto mode
+        if(is_equal(packet.param1,1.0f)){
+            if(set_mode(AUTO)) result = MAV_RESULT_ACCEPTED;
+            
+        //2define as abzz mode    
+        }else if(is_equal(packet.param1,2.0f)){
+#if MODE_ABZZ_ENABLED == ENABLED
+            if(set_mode(ABZZ)) result = MAV_RESULT_ACCEPTED;
+#else
+            result = MAV_RESULT_UNSUPPORTED;
+#endif
+        //other mode always accept
+        }else result = MAV_RESULT_ACCEPTED;
+    }else result = MAV_RESULT_TEMPORARILY_REJECTED;
+    
+    return result;
+  
+}
+
+MAV_RESULT GCS_MAVLINK_Copter::handle_command_pause_work()
+{
+  	MAV_RESULT result = MAV_RESULT_FAILED;
+    gcs().send_text(MAV_SEVERITY_DEBUG, "In handle pause work");
+
+    if(copter.flightmode == &copter.mode_auto){
+		copter.set_mode(LOITER, MODE_REASON_GCS_COMMAND);
+        result = MAV_RESULT_ACCEPTED;
+#if MODE_ABZZ_ENABLED == ENABLED
+    }else if(copter.flightmode == &copter.mode_abzz){
+        //we only pause the mission keep the work status
+        if(copter.mode_abzz.exit_ab_mode(false)){
+            gcs().send_text(MAV_SEVERITY_DEBUG, "ABZZ: exit by cmd");
+            result = MAV_RESULT_ACCEPTED;
+       }
+#else
+        result = MAV_RESULT_UNSUPPORTED;
+#endif
+    //other mode always accept
+    }else result = MAV_RESULT_ACCEPTED;
+    
+    return result;
+}
+
+MAV_RESULT GCS_MAVLINK_Copter::handle_command_finish_work()
+{
+     MAV_RESULT result = MAV_RESULT_FAILED;
+
+    if(copter.flightmode == &copter.mode_auto){
+		copter.set_mode(LOITER, MODE_REASON_GCS_COMMAND);
+        result = MAV_RESULT_ACCEPTED;
+#if MODE_ABZZ_ENABLED == ENABLED
+    }else if(copter.flightmode == &copter.mode_abzz){
+        //we only pause the mission keep the work status
+        if(copter.mode_abzz.exit_ab_mode(true)){
+            result = MAV_RESULT_ACCEPTED;
+        }
+#else
+        result = MAV_RESULT_UNSUPPORTED;
+#endif
+    //other mode always accept
+    }else result = MAV_RESULT_ACCEPTED;
+    
+    return result;
+}
+
+/********************** xiao deng add handler done *********************/
+
+uint32_t GCS_MAVLINK_Copter::setBeaconParams()
+{
+	// copy beacon params to copter.
+	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+	
+	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
+
+	return 0;
+}
+
+uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo()
+{
+	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+	
+	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon special point info\n\r");
+
+	return 0;
+}
+
+
+

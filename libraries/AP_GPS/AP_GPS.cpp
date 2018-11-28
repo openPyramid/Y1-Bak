@@ -926,6 +926,8 @@ void AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
     horizontal_accuracy(0, hacc);
     vertical_accuracy(0, vacc);
     speed_accuracy(0, sacc);
+
+	// mavlink_msg_gps_raw_int_send(mavlink_channel_t chan, uint64_t time_usec, uint8_t fix_type, int32_t lat, int32_t lon, int32_t alt, uint16_t eph, uint16_t epv, uint16_t vel, uint16_t cog, uint8_t satellites_visible)
     mavlink_msg_gps_raw_int_send(
         chan,
         last_fix_time_ms(0)*(uint64_t)1000,
@@ -936,7 +938,7 @@ void AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
         get_hdop(0),
         get_vdop(0),
         ground_speed(0)*100,  // cm/s
-        ground_course(0)*100, // 1/100 degrees,
+        60*100, // 1/100 degrees,             -------->for yaw
         num_sats(0),
         0,                    // TODO: Elipsoid height in mm
         hacc * 1000,          // one-sigma standard deviation in mm
