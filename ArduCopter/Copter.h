@@ -638,15 +638,19 @@ private:
         Failsafe_Action_RTL            = 2,
         Failsafe_Action_SmartRTL       = 3,
         Failsafe_Action_SmartRTL_Land  = 4,
-        Failsafe_Action_Terminate      = 5
+        Failsafe_Action_Terminate      = 5,
+        Failsafe_Action_Loiter		   = 6,
+        Failsafe_Action_Alarm		   = 7,
     };
 
     static constexpr int8_t _failsafe_priorities[] = {
                                                       Failsafe_Action_Terminate,
                                                       Failsafe_Action_Land,
-                                                      Failsafe_Action_RTL,
+													  Failsafe_Action_Loiter,
+													  Failsafe_Action_RTL,
                                                       Failsafe_Action_SmartRTL_Land,
                                                       Failsafe_Action_SmartRTL,
+                                                      Failsafe_Action_Alarm,
                                                       Failsafe_Action_None,
                                                       -1 // the priority list must end with a sentinel of -1
                                                      };
@@ -750,6 +754,8 @@ private:
     void gpsglitch_check();
     void set_mode_RTL_or_land_with_pause(mode_reason_t reason);
     void set_mode_SmartRTL_or_RTL(mode_reason_t reason);
+	void set_mode_Loiter(mode_reason_t reason);
+	void set_mode_ALT_HOLD(mode_reason_t reason);
     void set_mode_SmartRTL_or_land_with_pause(mode_reason_t reason);
     bool should_disarm_on_failsafe();
     void update_events();
