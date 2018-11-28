@@ -133,7 +133,12 @@ void Copter::failsafe_gcs_check()
             set_mode_SmartRTL_or_RTL(MODE_REASON_GCS_FAILSAFE);
         } else if (g.failsafe_gcs == FS_GCS_ENABLED_ALWAYS_SMARTRTL_OR_LAND) {
             set_mode_SmartRTL_or_land_with_pause(MODE_REASON_GCS_FAILSAFE);
-        } else { // g.failsafe_gcs == FS_GCS_ENABLED_ALWAYS_RTL
+        } else if(g.failsafe_gcs == FS_GCS_ENABLED_ALWAYS_LOITER){
+			set_mode_Loiter(MODE_REASON_GCS_FAILSAFE);
+		} else if(g.failsafe_gcs == FS_GCS_ENABLED_ALWAYS_LAND){
+			set_mode_land_with_pause(MODE_REASON_GCS_FAILSAFE);
+		} 
+		else { // g.failsafe_gcs == FS_GCS_ENABLED_ALWAYS_RTL
             set_mode_RTL_or_land_with_pause(MODE_REASON_GCS_FAILSAFE);
         }
     }
@@ -264,6 +269,32 @@ void Copter::set_mode_SmartRTL_or_RTL(mode_reason_t reason)
         AP_Notify::events.failsafe_mode_change = 1;
     }
 }
+
+void Copter::set_mode_Loiter(mode_reason_t reason)
+{
+    // attempt to switch to Loiter, if this failed then attempt to RTL
+    // if that fails, then land
+    if (!set_mode(LOITER, reason)) {
+        gcs().send_text(MAV_SEVERITY_WARNING, "Loiter Unavailable, Trying ALT_HOLD Mode");
+        set_mode_RTL_or_land_with_pause(reason);
+    } else {
+        AP_Notify::events.failsafe_mode_change = 1;
+    }
+}
+
+void Copter::set_mode_ALT_HOLD(mode_reason_t reason)
+{
+    // attempt to switch to ALT_HOLD
+    // if that fails, then land
+    if (!set_mode(ALT_HOLD, reason)) {
+        gcs().send_text(MAV_SEVERITY_WARNING, "ALT_HOLD Unavailable, Trying land Mode");
+        set_mode_land_with_pause(reason);
+    } else {
+        AP_Notify::events.failsafe_mode_change = 1;
+    }
+}
+
+
 
 bool Copter::should_disarm_on_failsafe() {
     if (ap.in_arming_delay) {

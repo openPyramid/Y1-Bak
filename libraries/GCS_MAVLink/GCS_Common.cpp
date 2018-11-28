@@ -678,6 +678,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z); 
     } else {
         mavlink_mission_item_int_t packet;
         mavlink_msg_mission_item_int_decode(msg, &packet);
@@ -690,6 +691,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         
         seq = packet.seq;
         current = packet.current;
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z); 
     }
 
     if (current == 2) {                                               
