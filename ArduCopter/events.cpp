@@ -73,6 +73,13 @@ void Copter::handle_battery_failsafe(const char *type_str, const int8_t action)
             case Failsafe_Action_SmartRTL_Land:
                 set_mode_SmartRTL_or_land_with_pause(MODE_REASON_BATTERY_FAILSAFE);
                 break;
+			case Failsafe_Action_Loiter:
+				set_mode_Loiter(MODE_REASON_BATTERY_FAILSAFE);
+				break;
+			case Failsafe_Action_Alarm:
+				gcs().send_text(MAV_SEVERITY_CRITICAL, "Dangerous, Low battery!");	
+				break;
+			
             case Failsafe_Action_Terminate:
 #if ADVANCED_FAILSAFE == ENABLED
                 char battery_type_str[17];
@@ -276,7 +283,7 @@ void Copter::set_mode_Loiter(mode_reason_t reason)
     // if that fails, then land
     if (!set_mode(LOITER, reason)) {
         gcs().send_text(MAV_SEVERITY_WARNING, "Loiter Unavailable, Trying ALT_HOLD Mode");
-        set_mode_RTL_or_land_with_pause(reason);
+        set_mode_ALT_HOLD(reason);
     } else {
         AP_Notify::events.failsafe_mode_change = 1;
     }

@@ -192,7 +192,7 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
 #endif
 };
 
-constexpr int8_t Copter::_failsafe_priorities[7];
+constexpr int8_t Copter::_failsafe_priorities[9];
 
 void Copter::setup()
 {
