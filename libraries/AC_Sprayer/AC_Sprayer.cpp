@@ -177,8 +177,10 @@ void AC_Sprayer::update()
 
         case Suspend :
             if(_enabled){
-                if(_triggle_manual || (_triggle_auto && _cmd_auto_enable)){
-                    _state = Running;
+                if(_triggle_manual || _triggle_auto){
+                    if(_triggle_manual || (_triggle_auto && _cmd_auto_enable)){
+                        _state = Running;
+                    }
                     _triggle_auto = false;
                     _triggle_manual = false;
                 }
@@ -191,12 +193,13 @@ void AC_Sprayer::update()
             break;
 
         case Running :
-            if(_triggle_manual || _triggle_tankempty){
+            if(!_enabled || _triggle_manual || _triggle_tankempty){
                 _state = Stop;
                 _triggle_manual = false;
                 _triggle_tankempty = false;
-            }else if(_triggle_auto && !_cmd_auto_enable){
-                _state = Suspend;
+            }else if(_triggle_auto){
+                if(!_cmd_auto_enable) _state = Suspend;
+
                 _triggle_auto = false;
             }
              break;
