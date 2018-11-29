@@ -134,6 +134,12 @@ NOINLINE void Copter::send_extended_status1(mavlink_channel_t chan)
 {
     int16_t battery_current = -1;
     int8_t battery_remaining = -1;
+	float temp;
+
+	temp = ahrs.yaw * 57.3f;
+	if(temp < 0) {
+		temp = fabs(360.0f + temp);
+	}
 
     if (battery.has_current() && battery.healthy()) {
         battery_remaining = battery.capacity_remaining_pct();
@@ -153,7 +159,7 @@ NOINLINE void Copter::send_extended_status1(mavlink_channel_t chan)
         battery_remaining,      // in %
         0, // comm drops %,
         0, // comm drops in pkts,
-        0, 0, 0, 0);
+        0, 0, 0, temp*100); // beacon send heading.
 }
 
 void NOINLINE Copter::send_nav_controller_output(mavlink_channel_t chan)
@@ -469,15 +475,16 @@ static const ap_message STREAM_RAW_SENSORS_msgs[] = {
 };
 static const ap_message STREAM_EXTENDED_STATUS_msgs[] = {
     MSG_EXTENDED_STATUS1, // SYS_STATUS, POWER_STATUS
-    MSG_EXTENDED_STATUS2, // MEMINFO
+    // MSG_EXTENDED_STATUS2, // MEMINFO
     MSG_CURRENT_WAYPOINT, // MISSION_CURRENT
     MSG_GPS_RAW,
-    //MSG_GPS_RTK,
-    MSG_GPS2_RAW,
-    //MSG_GPS2_RTK,
-    //MSG_NAV_CONTROLLER_OUTPUT,
-    //MSG_FENCE_STATUS,
-    //MSG_POSITION_TARGET_GLOBAL_INT,
+    MSG_VFR_HUD,
+    // MSG_GPS_RTK,
+    // MSG_GPS2_RAW,
+    // MSG_GPS2_RTK,
+    // MSG_NAV_CONTROLLER_OUTPUT,
+    // MSG_FENCE_STATUS,
+    // MSG_POSITION_TARGET_GLOBAL_INT,
     MSG_SYSTEM_TIME,
 };
 static const ap_message STREAM_POSITION_msgs[] = {
