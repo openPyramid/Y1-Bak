@@ -963,12 +963,17 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
             if (copter.motors->armed() && copter.set_mode(AUTO, MODE_REASON_GCS_COMMAND)) {
                 copter.set_auto_armed(true);
                 if (copter.mission.state() != AP_Mission::MISSION_RUNNING) {
+					// bearing calc is needed.
+					copter.beaconParams.needCalcBearingFlag = 1;
+					copter.beaconParams.calcBearingMS = 0;
+					copter.beaconParams.calcBearingDoneFlag = 0;
+		
                     copter.mission.start_or_resume();
 
-					gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 1 \n\r"); 
+					gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 1 \n\r");
                 }
 
-				gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 2 \n\r"); 
+				gcs().send_text(MAV_SEVERITY_CRITICAL, "gcs command start mission 2 \n\r");
                 result = MAV_RESULT_ACCEPTED;
             }
             break;

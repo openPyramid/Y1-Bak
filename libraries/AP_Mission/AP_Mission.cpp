@@ -54,7 +54,7 @@ void AP_Mission::init()
     // If Mission Clear bit is set then it should clear the mission, otherwise retain the mission.
     if (AP_MISSION_MASK_MISSION_CLEAR & _options) {
     	gcs().send_text(MAV_SEVERITY_INFO, "Clearing Mission");
-    	clear();	
+    	clear();
     }
 
     _last_change_time_ms = AP_HAL::millis();
@@ -66,10 +66,8 @@ void AP_Mission::start()
 {
     _flags.state = MISSION_RUNNING;
 
-	hal.console->printf("start mission-----------");
-
     reset(); // reset mission to the first command, resets jump tracking
-    
+
     // advance to the first command
     if (!advance_current_nav_cmd()) {
         // on failure set mission complete
@@ -87,7 +85,6 @@ void AP_Mission::stop()
 ///     previous running commands will be re-initialized
 void AP_Mission::resume()
 {
-	hal.console->printf("from resume.");
     // if mission had completed then start it from the first command
     if (_flags.state == MISSION_COMPLETE) {
         start();
@@ -114,12 +111,11 @@ void AP_Mission::resume()
         return;
     }
 
-	
 	if(_nav_cmd.index > 1){
-		_nav_cmd.index = _nav_cmd.index - 1;	
+		_nav_cmd.index = _nav_cmd.index - 1;
 
-		_nav_cmd.content.location.lat = 0;
-		_nav_cmd.content.location.lng = 0;
+		_nav_cmd.content.location.lat = 1;
+		_nav_cmd.content.location.lng = 1;
 	}
 
     // restart active navigation command. We run these on resume()
@@ -640,6 +636,12 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 #else
         // delay at waypoint in seconds (this is for copters???)
         cmd.p1 = packet.param1;
+
+		if(packet.param3 > 0.8f) {
+			cmd.content.location.flags.unused1 = 1;
+		} else if(packet.param3 < 0.2f) {
+			cmd.content.location.flags.unused1 = 0;
+		}
 #endif
     }
         break;
@@ -1454,12 +1456,13 @@ bool AP_Mission::advance_current_nav_cmd()
             // set current navigation command and start it
             _nav_cmd = cmd;
             _flags.nav_cmd_loaded = true;
+
             _cmd_start_fn(_nav_cmd);
         }else{
             // set current do command and start it (if not already set)
             if (!_flags.do_cmd_loaded) {
                 _do_cmd = cmd;
-                _flags.do_cmd_loaded = true;
+                _flags.do_cmd_loaded = true; 
                 _cmd_start_fn(_do_cmd);
             } else {
                 // protect against endless loops of do-commands
@@ -1587,6 +1590,7 @@ bool AP_Mission::get_next_cmd(uint16_t start_index, Mission_Command& cmd, bool i
         }else{
             // this is a non-jump command so return it
             cmd = temp_cmd;
+
             return true;
         }
     }

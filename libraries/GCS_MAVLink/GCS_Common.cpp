@@ -654,6 +654,14 @@ void GCS_MAVLINK::handle_radio_status(mavlink_message_t *msg, DataFlash_Class &d
     }
 }
 
+
+//gcs().send_text(MAV_SEVERITY_CRITICAL, "write wp  lat %d, lng %d\n\r", cmd.content.location.lat, cmd.content.location.lng); 
+/////////////////////////////////////////////////
+//struct AP_Mission::Mission_Command cmd2 = {};
+//mission.read_cmd_from_storage(1, cmd2);
+//gcs().send_text(MAV_SEVERITY_CRITICAL, "read wp  %d, lat %d, lng %d\n\r", cmd2.content.location.lat, cmd2.content.location.lng); 
+
+
 /*
   handle an incoming mission item
   return true if this is the last mission item, otherwise false
@@ -675,10 +683,10 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         if (result != MAV_MISSION_ACCEPTED) {
             goto mission_ack;
         }
-        
+
         seq = packet.seq;
         current = packet.current;
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z); 
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z);
     } else {
         mavlink_mission_item_int_t packet;
         mavlink_msg_mission_item_int_decode(msg, &packet);
@@ -688,13 +696,13 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         if (result != MAV_MISSION_ACCEPTED) {
             goto mission_ack;
         }
-        
+
         seq = packet.seq;
         current = packet.current;
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z); 
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp param3 %f, p1 %f\n\r", packet.param3, packet.param1);
     }
 
-    if (current == 2) {                                               
+    if (current == 2) {
         // current = 2 is a flag to tell us this is a "guided mode"
         // waypoint and not for the mission
         result = (handle_guided_request(cmd) ? MAV_MISSION_ACCEPTED
@@ -744,7 +752,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         }
         // if command is at the end of command list, add the command
     } else if (seq == mission.num_commands()) {
-        if (mission.add_cmd(cmd)) {
+        if (mission.add_cmd(cmd)) {	
             result = MAV_MISSION_ACCEPTED;
         }else{
             result = MAV_MISSION_ERROR;
@@ -752,6 +760,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         }
         // if beyond the end of the command list, return an error
     } else {
+
         result = MAV_MISSION_ERROR;
         goto mission_ack;
     }
@@ -1757,10 +1766,12 @@ float GCS_MAVLINK::vfr_hud_climbrate() const
 
 void GCS_MAVLINK::send_vfr_hud()
 {
+	Vector3f relativePos;
     AP_AHRS &ahrs = AP::ahrs();
 
     // return values ignored; we send stale data
-    ahrs.get_position(global_position_current_loc);
+    // ahrs.get_position(global_position_current_loc);
+    ahrs.get_relative_position_NED_home(relativePos);
     ahrs.get_velocity_NED(vfr_hud_velned);
 
     mavlink_msg_vfr_hud_send(
@@ -1769,7 +1780,8 @@ void GCS_MAVLINK::send_vfr_hud()
         ahrs.groundspeed(),
         (ahrs.yaw_sensor / 100) % 360,
         vfr_hud_throttle(),
-        global_position_current_loc.alt * 0.01f, // cm -> m
+        // global_position_current_loc.alt * 0.01f, // cm -> m
+        -relativePos.z *1000.0f,
         vfr_hud_climbrate());
 }
 
@@ -2295,7 +2307,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 		beaconParams.velocity = packet.speed;
 		beaconParams.flow = packet.flow;
 
-		//send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, height %d, widht %d, speed %d, flow %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
+		send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, h %d, w %d, spd %d, flw %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
 		setBeaconParams();
 
 		// ACK

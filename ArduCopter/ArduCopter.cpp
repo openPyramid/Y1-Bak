@@ -411,7 +411,7 @@ void Copter::three_hz_loop()
     // update ch6 in flight tuning
     tuning();
 
-	getAutoBreakPoint();	
+	getAutoBreakPoint();
 }
 
 void Copter::getAutoBreakPoint(void)
@@ -447,13 +447,13 @@ void Copter::getAutoBreakPoint(void)
 			copter.beaconParams.breakPointLatitude = copter.current_loc.lat;
 			copter.beaconParams.breakPointLongitude = copter.current_loc.lng;
 			copter.beaconParams.seqOfNextWayPoint = copter.mission.get_current_nav_index();
+			copter.beaconParams.sprayFlag = !copter.mission.get_current_nav_cmd().content.location.flags.unused1;
 
 			// gcs().try_send_message(MSG_BEACON_BREAKPOINT);
 			gcs().send_message(MSG_BEACON_BREAKPOINT);
-			gcs().send_text(MAV_SEVERITY_CRITICAL, "g lat %d, lng %d, index is %d\n\r", copter.beaconParams.breakPointLatitude, copter.beaconParams.breakPointLatitude, copter.beaconParams.seqOfNextWayPoint );
 		}
 		break;
-		
+
 	default:
 		break;
 	}
