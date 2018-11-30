@@ -43,7 +43,12 @@ bool Copter::ModeAuto::init(bool ignore_checks)
         // clear guided limits
         copter.mode_guided.limit_clear();
 
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "form modeAuto::init\n\r"); 
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "form modeAuto::init\n\r");
+
+		// bearing calc is needed.
+		copter.beaconParams.needCalcBearingFlag = 1;
+		copter.beaconParams.calcBearingMS = 0;
+		copter.beaconParams.calcBearingDoneFlag = 0;
 
         // start/resume the mission (based on MIS_RESTART parameter)
         copter.mission.start_or_resume();
@@ -210,12 +215,31 @@ void Copter::ModeAuto::wp_start(const Location_Class& dest_loc)
         copter.failsafe_terrain_on_event();
         return;
     }
-
+		
+	if(1 == copter.beaconParams.needCalcBearingFlag) {
+		switch(copter.beaconParams.calcBearingMS) {
+		case 0:
+			if(1 == dest_loc.flags.unused1) copter.beaconParams.calcBearingMS = 1;
+			break;
+		case 1: //calc bearing.
+			copter.beaconParams.fixYaw = copter.wp_nav->get_wp_bearing_origin_to_destination();
+			copter.beaconParams.calcBearingDoneFlag = 1;
+			copter.beaconParams.calcBearingMS = 2;
+			break;
+		
+		default:
+			break;
+		}
+	}
+	
     // initialise yaw
     // To-Do: reset the yaw only when the previous navigation command is not a WP.  this would allow removing the special check for ROI
     if (auto_yaw.mode() != AUTO_YAW_ROI) {
-        auto_yaw.set_mode_to_default(false);
-		// auto_yaw.set_fixed_yaw(30, 0, 1, 0);
+		if(copter.beaconParams.calcBearingDoneFlag) {
+			auto_yaw.set_fixed_yaw(copter.beaconParams.fixYaw/100.0f, 0, 1, 0);
+		} else {
+			auto_yaw.set_mode_to_default(false);
+		}
     }
 }
 
@@ -1092,17 +1116,17 @@ void Copter::ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     Location_Class target_loc(cmd.content.location);
 	target_loc.alt = copter.beaconParams.height;
 
-	
-	if(fabs(target_loc.lat * target_loc.lng) < 0.00001f ){
+	if(fabs(target_loc.lat * target_loc.lng) == 1 ){
 		target_loc.lat = copter.beaconParams.breakPointLatitude;
 		target_loc.lng = copter.beaconParams.breakPointLongitude;
+		target_loc.flags.unused1 = copter.beaconParams.sprayFlag;
 
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "set breakpoint, %d , %d\n\r", target_loc.lat, target_loc.lng); 
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "set breakpoint, %d , %d, %d\n\r", target_loc.lat, target_loc.lng, target_loc.flags.unused1);
 	}
 	else{
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "set point wp, %d , %d, alt %d\n\r", target_loc.lat, target_loc.lng, target_loc.alt); 
-	}	
-	
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "set point wp, %d , %d, alt %d\n\r", target_loc.lat, target_loc.lng, target_loc.alt);
+	}
+
     const Location_Class &current_loc = copter.current_loc;
 
     // use current lat, lon if zero
@@ -1126,7 +1150,7 @@ void Copter::ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     loiter_time = 0;
     // this is the delay, stored in seconds
     loiter_time_max = cmd.p1;
-
+	
     // Set wp navigation target
     wp_start(target_loc);
 

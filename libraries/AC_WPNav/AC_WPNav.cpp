@@ -717,6 +717,12 @@ int32_t AC_WPNav::get_wp_bearing_to_destination() const
     return get_bearing_cd(_inav.get_position(), _destination);
 }
 
+/// get beacon bearing
+int32_t AC_WPNav::get_wp_bearing_origin_to_destination() const
+{
+    return get_bearing_cd(_origin, _destination);
+}
+
 /// update_wpnav - run the wp controller - should be called at 100hz or higher
 bool AC_WPNav::update_wpnav()
 {

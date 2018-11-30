@@ -145,6 +145,9 @@ public:
     /// get_bearing_to_destination - get bearing to next waypoint in centi-degrees
     int32_t get_wp_bearing_to_destination() const;
 
+	/// get beacon bearing
+	int32_t get_wp_bearing_origin_to_destination() const;
+
     /// reached_destination - true when we have come within RADIUS cm of the waypoint
     bool reached_wp_destination() const { return _flags.reached_destination; }
 
