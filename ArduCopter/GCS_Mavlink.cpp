@@ -828,6 +828,8 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
 
             float takeoff_alt = packet.param7 * 100;      // Convert m to cm
 
+			gcs().send_text(MAV_SEVERITY_CRITICAL, "takeoff alt %f -----\n\r", packet.param7); 
+
             if (copter.flightmode->do_user_takeoff(takeoff_alt, is_zero(packet.param3))) {
                 result = MAV_RESULT_ACCEPTED;
             } else {
@@ -1871,7 +1873,12 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_finish_work()
 uint32_t GCS_MAVLINK_Copter::setBeaconParams()
 {
 	// copy beacon params to copter.
-	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+//	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+	copter.beaconParams.funtionMask = beaconParams.funtionMask;
+	copter.beaconParams.height = beaconParams.height;
+	copter.beaconParams.width = beaconParams.width;
+	copter.beaconParams.velocity = beaconParams.velocity;
+	copter.beaconParams.flow = beaconParams.flow;
 	
 	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
 

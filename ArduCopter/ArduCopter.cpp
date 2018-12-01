@@ -444,10 +444,21 @@ void Copter::getAutoBreakPoint(void)
 			getBreakPointMS = 0;
 
 			// TODO: add code to escape complete issue.
-			copter.beaconParams.breakPointLatitude = copter.current_loc.lat;
-			copter.beaconParams.breakPointLongitude = copter.current_loc.lng;
+			if(0 == copter.mission.get_current_nav_cmd().content.location.flags.unused1) copter.beaconParams.sprayFlag = 1;
+			else copter.beaconParams.sprayFlag = 0;
+			
+			gcs().send_text(MAV_SEVERITY_CRITICAL, "curNavCmd spray flag: %d\n\r", copter.mission.get_current_nav_cmd().content.location.flags.unused1); 
+			// shift, use next point as break point.
+			if(0 == copter.beaconParams.sprayFlag) {
+				copter.beaconParams.breakPointLatitude = copter.mission.get_current_nav_cmd().content.location.lat;
+				copter.beaconParams.breakPointLongitude = copter.mission.get_current_nav_cmd().content.location.lng;	
+			}
+			else {
+				copter.beaconParams.breakPointLatitude = copter.current_loc.lat;
+				copter.beaconParams.breakPointLongitude = copter.current_loc.lng;
+			}
+
 			copter.beaconParams.seqOfNextWayPoint = copter.mission.get_current_nav_index();
-			copter.beaconParams.sprayFlag = !copter.mission.get_current_nav_cmd().content.location.flags.unused1;
 
 			// gcs().try_send_message(MSG_BEACON_BREAKPOINT);
 			gcs().send_message(MSG_BEACON_BREAKPOINT);
