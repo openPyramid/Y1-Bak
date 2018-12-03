@@ -44,7 +44,7 @@ protected:
 	/************** xiao deng add done ***************/
 
 	uint32_t setBeaconParams() override;
-	uint32_t setSpecialPointInfo() override;
+	uint32_t setSpecialPointInfo(uint8_t type) override;
 
 private:
 

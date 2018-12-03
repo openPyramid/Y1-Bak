@@ -1759,14 +1759,18 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_get_point_ab(const mavlink_command
 
         if(packet.command == MAV_CMD_GET_POINT_A){
             copter.mode_abzz.sample_ab_point(0,copter.current_loc);
-			beaconParams.aPointLatitude = copter.current_loc.lat;
-			beaconParams.aPointLongitude = copter.current_loc.lng;
-			setSpecialPointInfo();
+
+			copter.beaconParams.aPointLatitude = copter.current_loc.lat;
+			copter.beaconParams.aPointLongitude = copter.current_loc.lng;
+
+			mavlink_msg_special_point_info_send(chan, 2, 0, 0, copter.beaconParams.aPointLatitude, copter.beaconParams.aPointLongitude);
         }else{
             copter.mode_abzz.sample_ab_point(1,copter.current_loc);
-			beaconParams.bPointLatitude = copter.current_loc.lat;
-			beaconParams.bPointLongitude = copter.current_loc.lng;
-			setSpecialPointInfo();
+
+			copter.beaconParams.bPointLatitude = copter.current_loc.lat;
+			copter.beaconParams.bPointLongitude = copter.current_loc.lng;
+
+			mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.beaconParams.aPointLatitude, copter.beaconParams.aPointLongitude);
         }
 
         return MAV_RESULT_ACCEPTED;
@@ -1873,23 +1877,39 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_finish_work()
 uint32_t GCS_MAVLINK_Copter::setBeaconParams()
 {
 	// copy beacon params to copter.
-//	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+
 	copter.beaconParams.funtionMask = beaconParams.funtionMask;
 	copter.beaconParams.height = beaconParams.height;
 	copter.beaconParams.width = beaconParams.width;
 	copter.beaconParams.velocity = beaconParams.velocity;
 	copter.beaconParams.flow = beaconParams.flow;
 	
-	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
+	// gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
 
 	return 0;
 }
 
-uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo()
+// type: 1:A point; 2: B point; 3: Break point.
+uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo(uint8_t type)
 {
-	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
+//	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
 	
-	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon special point info\n\r");
+//	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon special point info\n\r");
+
+	if(2 == type) {
+		copter.beaconParams.aPointLatitude = beaconParams.aPointLatitude;
+		copter.beaconParams.aPointLongitude = beaconParams.aPointLongitude;
+	} else if(3 == type) {
+		copter.beaconParams.bPointLatitude = beaconParams.bPointLatitude;
+		copter.beaconParams.bPointLongitude = beaconParams.bPointLongitude;
+	} else if(1 == type) {
+		copter.beaconParams.breakPointLatitude = beaconParams.breakPointLatitude;
+		copter.beaconParams.breakPointLongitude = beaconParams.breakPointLongitude;
+		copter.beaconParams.breakDirection = beaconParams.breakDirection;
+		copter.beaconParams.seqOfNextWayPoint = beaconParams.seqOfNextWayPoint;
+	} else {
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "Get error beacon special point: id %d\n\r", type);
+	}
 
 	return 0;
 }
