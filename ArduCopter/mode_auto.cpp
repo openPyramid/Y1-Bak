@@ -215,7 +215,7 @@ void Copter::ModeAuto::wp_start(const Location_Class& dest_loc)
         copter.failsafe_terrain_on_event();
         return;
     }
-		
+
 	if(1 == copter.beaconParams.needCalcBearingFlag) {
 		switch(copter.beaconParams.calcBearingMS) {
 		case 0:
@@ -231,7 +231,7 @@ void Copter::ModeAuto::wp_start(const Location_Class& dest_loc)
 			break;
 		}
 	}
-	
+
     // initialise yaw
     // To-Do: reset the yaw only when the previous navigation command is not a WP.  this would allow removing the special check for ROI
     if (auto_yaw.mode() != AUTO_YAW_ROI) {

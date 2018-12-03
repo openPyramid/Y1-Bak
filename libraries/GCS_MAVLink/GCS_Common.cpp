@@ -2307,7 +2307,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 		beaconParams.velocity = packet.speed;
 		beaconParams.flow = packet.flow;
 
-		send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, h %d, w %d, spd %d, flw %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
+		// send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, h %d, w %d, spd %d, flw %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
 		setBeaconParams();
 
 		// ACK
@@ -2346,7 +2346,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 			break;
 		}
 	
-		setSpecialPointInfo();
+		setSpecialPointInfo(packet1.point_type);
 		
 		break;
 	case MAVLINK_MSG_ID_SPECIAL_POINT_INFO_REQUEST:
@@ -2918,7 +2918,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
     *-------------------------------------*/
     case MAV_CMD_GET_POINT_A:
     case MAV_CMD_GET_POINT_B:
-	 	 // result = handle_command_get_point_ab(packet);
+	 	 result = handle_command_get_point_ab(packet);
 
 		// TODO: For test only, 
 		if(MAV_CMD_GET_POINT_A == packet.command){
@@ -2928,8 +2928,6 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
 			//mavlink_msg_special_point_info_send(chan, 3, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
 			// mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.current_loc.lat, copter.current_loc.lng);
 		}
-
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "get a b point \n\r"); 
 		
 		result = MAV_RESULT_ACCEPTED;
         break;
@@ -2948,7 +2946,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
         break;
     case MAV_CMD_PAUSE_WORK:
 		result = handle_command_pause_work();
-		mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, 225740000, 1141234067);
+		// mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, 225740000, 1141234067);
 		result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_FINISH_WORK:
