@@ -35,6 +35,8 @@
 
 #include <uavcan/equipment/power/BatteryInfo.hpp>
 
+#include <uavcan/equipment/range_sensor/Measurement.hpp>
+
 extern const AP_HAL::HAL& hal;
 
 #define debug_uavcan(level, fmt, args...) do { if ((level) <= AP_BoardConfig_CAN::get_can_debug()) { hal.console->printf(fmt, ##args); }} while (0)
@@ -358,6 +360,41 @@ static void battery_info_st_cb1(const uavcan::ReceivedDataStructure<uavcan::equi
 static void (*battery_info_st_cb_arr[2])(const uavcan::ReceivedDataStructure<uavcan::equipment::power::BatteryInfo>& msg)
         = { battery_info_st_cb0, battery_info_st_cb1 };
 
+static void rangeSensorCb(const uavcan::ReceivedDataStructure<uavcan::equipment::range_sensor::Measurement>& msg, uint8_t mgr)
+{
+    AP_UAVCAN *ap_uavcan = AP_UAVCAN::get_uavcan(mgr);
+    if (ap_uavcan == nullptr) {
+        return;
+    }
+//    
+//    AP_UAVCAN::BatteryInfo_Info *state = ap_uavcan->find_bi_id((uint16_t) msg.battery_id);
+//							       ap_uavcan->find_gps_node(msg.getSrcNodeID().get());
+//    if (state == nullptr) {
+//        return;
+//    }
+
+//    state->temperature = msg.temperature;
+//    state->voltage = msg.voltage;
+//    state->current = msg.current;
+//    state->full_charge_capacity_wh = msg.full_charge_capacity_wh;
+//    state->remaining_capacity_wh = msg.remaining_capacity_wh;
+//    state->status_flags = msg.status_flags;
+
+//    // after all is filled, update all listeners with new data
+//    ap_uavcan->update_bi_state((uint16_t) msg.battery_id);
+}
+
+
+
+// for uavcan range finder.
+static void rangeSensorCb0(const uavcan::ReceivedDataStructure<uavcan::equipment::range_sensor::Measurement>& msg)
+{	rangeSensorCb(msg, 0); }
+static void rangeSensorCb1(const uavcan::ReceivedDataStructure<uavcan::equipment::range_sensor::Measurement>& msg)
+{	rangeSensorCb(msg, 1); }
+static void (*rangeSensorCbArr[2])(const uavcan::ReceivedDataStructure<uavcan::equipment::range_sensor::Measurement>& msg)
+		= { rangeSensorCb0, rangeSensorCb1 };
+
+
 // publisher interfaces
 static uavcan::Publisher<uavcan::equipment::actuator::ArrayCommand>* act_out_array[MAX_NUMBER_OF_CAN_DRIVERS];
 static uavcan::Publisher<uavcan::equipment::esc::RawCommand>* esc_raw[MAX_NUMBER_OF_CAN_DRIVERS];
@@ -536,6 +573,15 @@ bool AP_UAVCAN::try_init(void)
         debug_uavcan(1, "UAVCAN BatteryInfo subscriber start problem\n\r");
         return false;
     }
+
+	uavcan::Subscriber<uavcan::equipment::range_sensor::Measurement> *rangerSensor;
+	rangerSensor= new uavcan::Subscriber<uavcan::equipment::range_sensor::Measurement>(*node);
+	const int rangerSensorStartRes = rangerSensor->start(rangeSensorCbArr[_uavcan_i]);
+	if (rangerSensorStartRes < 0) {
+		debug_uavcan(1, "UAVCAN Ranger sensor: Measurement subscriber start problem\n\r");
+		return false;
+	}
+
 
     act_out_array[_uavcan_i] = new uavcan::Publisher<uavcan::equipment::actuator::ArrayCommand>(*node);
     act_out_array[_uavcan_i]->setTxTimeout(uavcan::MonotonicDuration::fromMSec(20));
