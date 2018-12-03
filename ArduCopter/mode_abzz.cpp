@@ -76,7 +76,7 @@ bool Copter::ModeABZz::init(bool ignore_checks)
     }
 
     //init sprayer system to adapt auto mode
-    init_sprayer();
+    set_sprayer_auto();
     // initialise waypoint and spline controller
     wp_nav->wp_and_spline_init();
 
@@ -149,7 +149,7 @@ void Copter::ModeABZz::update_abwp_sta()
             if(!generate_next_abline()){
                 exit_ab_mode(true);
                 _sta_abzz = StandBy;
-                _sta_abzz_last = AToB;
+                _sta_abzz_last = Start;
                 return ;
             }
 
@@ -397,9 +397,11 @@ bool Copter::ModeABZz::exit_ab_mode(bool end_mission)
     }
     
     if (copter.set_mode(LOITER, MODE_REASON_UNKNOWN)) {
-        copter.mode_brake.timeout_to_loiter_ms(2000);
+        copter.mode_brake.timeout_to_loiter_ms(1500);
         return true;
     }else return false;
+
+    set_sprayer_manual();
 }
 
 bool Copter::ModeABZz::check_ab_point_validity()
@@ -1050,9 +1052,14 @@ void Copter::ModeABZz::operate_sprayer(const bool enable)
 }
 
 
-void Copter::ModeABZz::init_sprayer()
+void Copter::ModeABZz::set_sprayer_auto()
 {
     copter.sprayer.set_pump_mode(AC_Sprayer::Auto);
+}
+
+void Copter::ModeABZz::set_sprayer_manual()
+{
+    copter.sprayer.set_pump_mode(AC_Sprayer::Manual);
 }
 
 
