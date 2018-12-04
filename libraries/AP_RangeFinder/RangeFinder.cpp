@@ -35,6 +35,8 @@
 #include "AP_RangeFinder_NMEA.h"
 #include "AP_RangeFinder_Wasp.h"
 #include "AP_RangeFinder_Benewake.h"
+#include "AP_RangeFinder_OATF_TF.h"
+#include "AP_RangeFinder_OATF_OA.h"
 #include <AP_BoardConfig/AP_BoardConfig.h>
 
 extern const AP_HAL::HAL &hal;
@@ -44,7 +46,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     // @Param: _TYPE
     // @DisplayName: Rangefinder type
     // @Description: What type of rangefinder device that is connected
-    // @Values: 0:None,1:Analog,2:MaxbotixI2C,3:LidarLiteV2-I2C,5:PX4-PWM,6:BBB-PRU,7:LightWareI2C,8:LightWareSerial,9:Bebop,10:MAVLink,11:uLanding,12:LeddarOne,13:MaxbotixSerial,14:TeraRangerI2C,15:LidarLiteV3-I2C,16:VL53L0X,17:NMEA,18:WASP-LRF,19:BenewakeTF02,20:BenewakeTFmini
+    // @Values: 0:None,1:Analog,2:MaxbotixI2C,3:LidarLiteV2-I2C,5:PX4-PWM,6:BBB-PRU,7:LightWareI2C,8:LightWareSerial,9:Bebop,10:MAVLink,11:uLanding,12:LeddarOne,13:MaxbotixSerial,14:TeraRangerI2C,15:LidarLiteV3-I2C,16:VL53L0X,17:NMEA,18:WASP-LRF,19:BenewakeTF02,20:BenewakeTFmini,21:OATF
     // @User: Standard
     AP_GROUPINFO("_TYPE",    0, RangeFinder, state[0].type, 0),
 
@@ -755,6 +757,35 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
     case RangeFinder_TYPE_BenewakeTFmini:
         if (AP_RangeFinder_Benewake::detect(serial_manager, serial_instance)) {
             drivers[instance] = new AP_RangeFinder_Benewake(state[instance], serial_manager, serial_instance++, AP_RangeFinder_Benewake::BENEWAKE_TFmini);
+        }
+        break;
+    case RangeFinder_TYPE_OATF_TF:
+            if(instance>0 && drivers[instance-1]!= nullptr && drivers[instance-1]->type()==RangeFinder_TYPE_OATF_OA){
+                //we has initialised RangeFinder_OATF before in OA instance aquire it
+                AP_RangeFinder_OATF_TF* instance_ptr = nullptr;
+                if(((AP_RangeFinder_OATF_OA*)(drivers[instance-1]))->get_base_instance(instance_ptr)){
+                    drivers[instance] = instance_ptr;
+                }
+                else if (AP_RangeFinder_OATF_TF::detect(serial_manager, serial_instance)) {
+                    drivers[instance] = new AP_RangeFinder_OATF_TF(state[instance], serial_manager, serial_instance++);
+                }
+            }else if (AP_RangeFinder_OATF_TF::detect(serial_manager, serial_instance)) {
+                drivers[instance] = new AP_RangeFinder_OATF_TF(state[instance], serial_manager, serial_instance++);
+            }
+            else{
+                hal.console->printf("instance %d oatf return false\n", instance);
+            }
+        break;
+    case RangeFinder_TYPE_OATF_OA:
+        if(instance>0 && drivers[instance-1]!= nullptr && drivers[instance-1]->type()==RangeFinder_TYPE_OATF_TF){
+            drivers[instance] = new AP_RangeFinder_OATF_OA(state[instance]);
+            ((AP_RangeFinder_OATF_OA*)(drivers[instance]))->set_tf_enable_flag(true);
+            ((AP_RangeFinder_OATF_OA*)(drivers[instance]))->set_base_instance((AP_RangeFinder_OATF_TF*)(drivers[instance-1]));
+        }
+        else if (AP_RangeFinder_OATF_OA::detect(serial_manager, serial_instance)) {
+            drivers[instance] = new AP_RangeFinder_OATF_OA(state[instance]);
+           AP_RangeFinder_OATF_TF* tf_pointer = new AP_RangeFinder_OATF_TF(state[instance], serial_manager, serial_instance++);
+          ((AP_RangeFinder_OATF_OA*)(drivers[instance]))->set_base_instance(tf_pointer);
         }
         break;
     default:
