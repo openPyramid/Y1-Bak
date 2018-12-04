@@ -1781,7 +1781,7 @@ void GCS_MAVLINK::send_vfr_hud()
         (ahrs.yaw_sensor / 100) % 360,
         vfr_hud_throttle(),
         // global_position_current_loc.alt * 0.01f, // cm -> m
-        -relativePos.z *1000.0f,
+        -relativePos.z,
         vfr_hud_climbrate());
 }
 
@@ -2330,7 +2330,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 			beaconParams.breakDirection = packet1.direction;
 
 			// send_text(MAV_SEVERITY_CRITICAL, "Get break lat %d, lon %d, seq %d, dir %d", beaconParams.breakPointLatitude, beaconParams.breakPointLongitude, beaconParams.seqOfNextWayPoint, beaconParams.breakDirection);
-			mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
+			// mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
 			break;
 		case 2: // A point
 			beaconParams.aPointLatitude = packet1.latitude;
@@ -2359,10 +2359,10 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 			mavlink_msg_special_point_info_send(chan, packet2.point_type, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
 			break;
 		case 2:		// A Point
-			mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
+			// mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
 			break;
 		case 3:		// B Point
-			mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
+			// mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
 			break;
 		default:
 			break;
@@ -3247,21 +3247,6 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
 #endif
         break;
     }
-	case MSG_BEACON_BREAKPOINT:
-		mavlink_msg_special_point_info_send(chan, 1, 8, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "send beacon breakpoint --------\n\r"); 
-		break;
-	case MSG_BEACON_COMPLETE:
-		mavlink_msg_command_long_send(
-            chan,
-            0,
-            0,
-            MAV_CMD_FINISH_WORK,
-            0,
-            0,
-            0, 0, 0, 0, 0, 0);
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "beacon complete work send (cmd)\n\r"); 
-		break;
 
     default:
         // try_send_message must always at some stage return true for

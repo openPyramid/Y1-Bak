@@ -367,6 +367,21 @@ bool GCS_MAVLINK_Copter::try_send_message(enum ap_message id)
         copter.adsb.send_adsb_vehicle(chan);
 #endif
         break;
+	case MSG_BEACON_BREAKPOINT:
+		mavlink_msg_special_point_info_send(chan, 1, 8, copter.beaconParams.seqOfNextWayPoint, copter.beaconParams.breakPointLatitude, copter.beaconParams.breakPointLongitude);
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "send beacon breakpoint --------\n\r"); 
+		break;
+	case MSG_BEACON_COMPLETE:
+		mavlink_msg_command_long_send(
+            chan,
+            0,
+            0,
+            MAV_CMD_FINISH_WORK,
+            0,
+            0,
+            0, 0, 0, 0, 0, 0);
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "beacon complete work send (cmd)\n\r"); 
+		break;
 
     default:
         return GCS_MAVLINK::try_send_message(id);
