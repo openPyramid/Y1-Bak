@@ -88,7 +88,7 @@ void Copter::ModeLoiter::run()
     float target_yaw_rate = 0.0f;
     float target_climb_rate = 0.0f;
     float takeoff_climb_rate = 0.0f;
-    float pilot_climb_rate = 0.0f;
+    float pilot_des_climb_rate = 0.0f;
 
     // initialize vertical speed and acceleration
     pos_control->set_speed_z(-get_pilot_speed_dn(), g.pilot_speed_up);
@@ -111,7 +111,7 @@ void Copter::ModeLoiter::run()
         // get pilot desired climb rate
         target_climb_rate = get_pilot_desired_climb_rate(channel_throttle->get_control_in());
         target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
-        pilot_climb_rate = target_climb_rate;
+        pilot_des_climb_rate = target_climb_rate;
 
         //change speed
         int16_t ch_spd = channel_speed->get_control_in();
@@ -248,7 +248,7 @@ void Copter::ModeLoiter::run()
         attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(loiter_nav->get_roll(), loiter_nav->get_pitch(), target_yaw_rate);
 
         // adjust climb rate using rangefinder
-        target_climb_rate = get_surface_tracking_climb_rate_thro_reset(pilot_climb_rate, target_climb_rate, pos_control->get_alt_target(), G_Dt);
+        target_climb_rate = get_surface_tracking_climb_rate_thro_reset(pilot_des_climb_rate, target_climb_rate, pos_control->get_alt_target(), G_Dt);
 
         // get avoidance adjusted climb rate
         target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);

@@ -238,6 +238,7 @@ float Copter::get_surface_tracking_climb_rate_thro_reset(float pilot_rate, int16
     }
 
     static uint32_t last_call_ms = 0;
+    static bool cal_desired_rate = true;
     float distance_error;
     float velocity_correction;
     float current_alt = inertial_nav.get_altitude();
@@ -247,15 +248,31 @@ float Copter::get_surface_tracking_climb_rate_thro_reset(float pilot_rate, int16
     target_rangefinder_alt_used = true;
 
     // reset target altitude if this controller has just been engaged or pilot_rate return to zero
-    if (now - last_call_ms > RANGEFINDER_TIMEOUT_MS || is_zero(pilot_rate)) {
+    if (now - last_call_ms > RANGEFINDER_TIMEOUT_MS) {
         target_rangefinder_alt = rangefinder_state.alt_cm + current_alt_target - current_alt;
     }
     last_call_ms = now;
 
-    // adjust rangefinder target alt if motors have not hit their limits
-    if ((target_rate<0 && !motors->limit.throttle_lower) || (target_rate>0 && !motors->limit.throttle_upper)) {
-        target_rangefinder_alt += target_rate * dt;
+    //================================================================
+    //we mark throttle stick release once after pilot rate return to 0 from other value,
+    //and clear the mark immediately when pilot_rate!=0
+    if(!is_zero(pilot_rate)){
+        cal_desired_rate = false;
+    }else{
+        //if we just return 0 from other value, we update the target rngfnd alt
+        //and enable calculate surface track rate depand on z speed.
+        if(!cal_desired_rate){
+            int32_t vel_z = (int32_t)inertial_nav.get_velocity_z();
+             if(abs(vel_z) < 20){
+                 target_rangefinder_alt = rangefinder_state.alt_cm;
+                 cal_desired_rate = true;
+             }
+        }
     }
+
+    //we don't calculate surface track desired rate if pilot wants to adjust alt
+    if(!cal_desired_rate) return target_rate;
+    //================================================================
 
     /*
       handle rangefinder glitches. When we get a rangefinder reading
@@ -287,7 +304,6 @@ float Copter::get_surface_tracking_climb_rate_thro_reset(float pilot_rate, int16
     distance_error = (target_rangefinder_alt - rangefinder_state.alt_cm) - (current_alt_target - current_alt);
     velocity_correction = distance_error * g.rangefinder_gain;
     velocity_correction = constrain_float(velocity_correction, -THR_SURFACE_TRACKING_VELZ_MAX, THR_SURFACE_TRACKING_VELZ_MAX);
-
     // return combined pilot climb rate + rate to correct rangefinder alt error
     return (target_rate + velocity_correction);
 #else
