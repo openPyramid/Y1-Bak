@@ -1785,7 +1785,7 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_get_point_ab(const mavlink_command
 			copter.beaconParams.bPointLatitude = copter.current_loc.lat;
 			copter.beaconParams.bPointLongitude = copter.current_loc.lng;
 
-			mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.beaconParams.aPointLatitude, copter.beaconParams.aPointLongitude);
+			mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.beaconParams.bPointLatitude, copter.beaconParams.bPointLongitude);
         }
 
         return MAV_RESULT_ACCEPTED;
@@ -1904,13 +1904,9 @@ uint32_t GCS_MAVLINK_Copter::setBeaconParams()
 	return 0;
 }
 
-// type: 1:A point; 2: B point; 3: Break point.
+// type: 2:A point; 3: B point; 1: Break point.
 uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo(uint8_t type)
 {
-//	memcpy(&copter.beaconParams, &beaconParams, sizeof(BeaconParams));
-	
-//	gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon special point info\n\r");
-
 	if(2 == type) {
 		copter.beaconParams.aPointLatitude = beaconParams.aPointLatitude;
 		copter.beaconParams.aPointLongitude = beaconParams.aPointLongitude;
@@ -1928,6 +1924,25 @@ uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo(uint8_t type)
 
 	return 0;
 }
+
+// type: 2:A point; 3: B point; 1: Break point.
+uint32_t GCS_MAVLINK_Copter::sendSpecialPointInfo(uint8_t type)
+{
+	if(2 == type) {
+		mavlink_msg_special_point_info_send(chan, type, 0, 0, copter.beaconParams.aPointLatitude, copter.beaconParams.aPointLongitude);
+	} else if(3 == type) {
+		mavlink_msg_special_point_info_send(chan, type, 0, 0, copter.beaconParams.bPointLatitude, copter.beaconParams.bPointLongitude);
+	} else if(1 == type) {
+		mavlink_msg_special_point_info_send(chan, type, copter.beaconParams.breakDirection, copter.beaconParams.seqOfNextWayPoint, copter.beaconParams.breakPointLatitude, copter.beaconParams.breakPointLongitude);
+	} else {
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "Get error beacon special point: id %d\n\r", type);
+	}
+
+	return 0;
+}
+
+
+
 
 
 

@@ -256,6 +256,7 @@ protected:
 	BeaconParams beaconParams;
 	virtual uint32_t setBeaconParams() = 0;
 	virtual uint32_t setSpecialPointInfo(uint8_t type) = 0;
+	virtual uint32_t sendSpecialPointInfo(uint8_t type)=0;
 
     virtual bool in_hil_mode() const { return false; }
 
