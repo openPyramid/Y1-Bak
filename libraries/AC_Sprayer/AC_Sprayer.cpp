@@ -156,6 +156,12 @@ void AC_Sprayer::stop_spraying()
 /// update - adjust pwm of servo controlling pump speed according to the desired quantity and our horizontal speed
 void AC_Sprayer::update()
 {
+    //init output value if not init
+    if(!_flags.inited){
+        init();
+        return ;
+     }
+
     //check if tank is empty
     check_tankempty();
 
