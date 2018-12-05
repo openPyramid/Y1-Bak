@@ -2293,9 +2293,9 @@ mavlink_msg_special_point_info_request_decode(const mavlink_message_t* msg, mavl
 */
 
 void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
-{	
+{
 	switch (msg->msgid) {
-		
+	
 	case MAVLINK_MSG_ID_BEACON_COMMON_PARAM:
 		mavlink_beacon_common_param_t packet;
 	
@@ -2353,20 +2353,7 @@ void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
 		mavlink_special_point_info_request_t packet2;
 			
 		mavlink_msg_special_point_info_request_decode(msg, &packet2);
-		switch(packet2.point_type){
-
-		case 1: 	// Break Point
-			mavlink_msg_special_point_info_send(chan, packet2.point_type, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
-			break;
-		case 2:		// A Point
-			// mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
-			break;
-		case 3:		// B Point
-			// mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
-			break;
-		default:
-			break;
-		}
+		sendSpecialPointInfo(packet2.point_type);
 		
 		break;
 	default:

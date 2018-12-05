@@ -45,6 +45,7 @@ protected:
 
 	uint32_t setBeaconParams() override;
 	uint32_t setSpecialPointInfo(uint8_t type) override;
+	uint32_t sendSpecialPointInfo(uint8_t type) override;
 
 private:
 
