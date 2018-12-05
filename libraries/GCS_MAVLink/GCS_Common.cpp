@@ -2928,8 +2928,8 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
         break;
 	
     case MAV_CMD_START_WORK:
-		// result = handle_command_start_work(packet);
-		result = MAV_RESULT_ACCEPTED;
+		result = handle_command_start_work(packet);
+		//result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_PAUSE_WORK:
 		result = handle_command_pause_work();

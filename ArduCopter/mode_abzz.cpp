@@ -655,7 +655,7 @@ void Copter::ModeABZz::reset_mission()
 bool Copter::ModeABZz::wp_start(Vector3f& dest_vect)
 {
 
-    copter.wp_nav->set_speed_xy(500);
+    copter.wp_nav->set_speed_xy(200);
 
     // send target to waypoint controller
     if (!set_next_wp(dest_vect)) {
@@ -671,7 +671,7 @@ bool Copter::ModeABZz::wp_start(Vector3f& dest_vect)
 bool Copter::ModeABZz::wp_start(const Location_Class& dest_loc)
 {
 
-    copter.wp_nav->set_speed_xy(500);
+    copter.wp_nav->set_speed_xy(200);
 
     //convert to vector with x,y from ekf_origin and alt above ground if terrain is enable,
     //if not, the vector is from ekf_origin
