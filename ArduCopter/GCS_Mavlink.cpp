@@ -1898,6 +1898,8 @@ uint32_t GCS_MAVLINK_Copter::setBeaconParams()
 	copter.beaconParams.width = beaconParams.width;
 	copter.beaconParams.velocity = beaconParams.velocity;
 	copter.beaconParams.flow = beaconParams.flow;
+
+	copter.mode_abzz.save_ab_shiftdir(copter.beaconParams.width>0? 1 : -1);
 	
 	// gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
 
