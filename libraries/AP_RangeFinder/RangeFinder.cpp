@@ -37,6 +37,13 @@
 #include "AP_RangeFinder_Benewake.h"
 #include <AP_BoardConfig/AP_BoardConfig.h>
 
+#if HAL_WITH_UAVCAN
+#include <AP_BoardConfig/AP_BoardConfig_CAN.h>
+#include <AP_UAVCAN/AP_UAVCAN.h>
+#include "AP_RangeFinder_UAVCAN.h"
+#endif
+
+
 extern const AP_HAL::HAL &hal;
 
 // table of user settable parameters
@@ -639,6 +646,8 @@ bool RangeFinder::_add_backend(AP_RangeFinder_Backend *backend)
  */
 void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
 {
+	AP_RangeFinder_Backend * new_range_finder = nullptr;
+
     enum RangeFinder_Type _type = (enum RangeFinder_Type)state[instance].type.get();
     switch (_type) {
     case RangeFinder_TYPE_PLI2C:
@@ -757,6 +766,39 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
             drivers[instance] = new AP_RangeFinder_Benewake(state[instance], serial_manager, serial_instance++, AP_RangeFinder_Benewake::BENEWAKE_TFmini);
         }
         break;
+#if HAL_WITH_UAVCAN
+	case RangeFinder_TYPE_UAVCAN:
+		if (AP_BoardConfig_CAN::get_can_num_ifaces() == 0) {
+			return;
+		}
+		for (uint8_t i = 0; i < MAX_NUMBER_OF_CAN_DRIVERS; i++) {
+			AP_UAVCAN *ap_uavcan = AP_UAVCAN::get_uavcan(i);
+			if (ap_uavcan == nullptr) {
+				continue;
+			}
+			uint8_t range_finder_node = ap_uavcan->find_range_finder_without_listener();
+			if (range_finder_node == UINT8_MAX) {
+				continue;
+			}
+
+			new_range_finder = new AP_RangeFinder_UAVCAN(state[instance]);
+			//((AP_RangeFinder_UAVCAN *) new_range_finder)->set_uavcan_manager(i);
+			if (ap_uavcan->register_range_finder_listener_to_node(new_range_finder, range_finder_node)) {
+				if (AP_BoardConfig_CAN::get_can_debug() >= 2) {
+					printf("AP_GPS_UAVCAN registered\n\r");
+				}
+				
+				if (new_range_finder != nullptr) {
+					drivers[instance] = new_range_finder;
+				}
+			} else {
+				if(new_range_finder != nullptr) delete new_range_finder;
+			}
+		}
+
+		break;
+#endif
+	
     default:
         break;
     }

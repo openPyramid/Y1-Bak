@@ -13,6 +13,7 @@
 #include <AP_Param/AP_Param.h>
 
 #include <AP_GPS/GPS_Backend.h>
+#include <AP_RangeFinder/RangeFinder_Backend.h>
 #include <AP_Baro/AP_Baro_Backend.h>
 #include <AP_Compass/AP_Compass.h>
 #include <AP_BattMonitor/AP_BattMonitor_Backend.h>
@@ -34,6 +35,7 @@
 
 #define AP_UAVCAN_MAX_LISTENERS 4
 #define AP_UAVCAN_MAX_GPS_NODES 4
+#define AP_UAVCAN_MAX_RANGE_FINDER_NODES 4
 #define AP_UAVCAN_MAX_MAG_NODES 4
 #define AP_UAVCAN_MAX_BARO_NODES 4
 #define AP_UAVCAN_MAX_BI_NUMBER 4
@@ -77,6 +79,14 @@ public:
 
     // Updates all listeners of specified node
     void update_gps_state(uint8_t node);
+
+	// ------------------------------ Range Finder
+	uint8_t register_range_finder_listener(AP_RangeFinder_Backend* new_listener, uint8_t preferred_channel);
+	uint8_t register_range_finder_listener_to_node(AP_RangeFinder_Backend* new_listener, uint8_t node);
+	uint8_t find_range_finder_without_listener(void);
+	void remove_range_finder_listener(AP_RangeFinder_Backend* rem_listener);
+	RangeFinder::RangeFinder_State *find_range_finder_node(uint8_t node);
+	void update_range_finder_state(uint8_t node);
 
     struct Baro_Info {
         float pressure;
@@ -144,6 +154,19 @@ private:
     uint8_t _gps_listener_to_node[AP_UAVCAN_MAX_LISTENERS];
     // Listeners with callbacks to be updated
     AP_GPS_Backend* _gps_listeners[AP_UAVCAN_MAX_LISTENERS];
+
+	// ------------------------- Range Finder
+	// 255 - means free node
+    uint8_t _range_finder_nodes[AP_UAVCAN_MAX_RANGE_FINDER_NODES];
+    // Counter of how many listeners are connected to this source
+    uint8_t _range_finder_node_taken[AP_UAVCAN_MAX_RANGE_FINDER_NODES];
+    // Range finder data of the sources
+    RangeFinder::RangeFinder_State _range_finder_node_state[AP_UAVCAN_MAX_RANGE_FINDER_NODES];
+	
+	// 255 - means no connection
+    uint8_t _range_finder_listener_to_node[AP_UAVCAN_MAX_LISTENERS];
+	// Listeners with callbacks to be updated
+	AP_RangeFinder_Backend* _range_finder_listeners[AP_UAVCAN_MAX_LISTENERS];
 
     // ------------------------- BARO
     uint8_t _baro_nodes[AP_UAVCAN_MAX_BARO_NODES];
