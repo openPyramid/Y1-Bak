@@ -63,7 +63,8 @@ public:
         RangeFinder_TYPE_BenewakeTF02 = 19,
         RangeFinder_TYPE_BenewakeTFmini = 20,
         RangeFinder_TYPE_OATF_TF = 21,
-        RangeFinder_TYPE_OATF_OA = 22
+        RangeFinder_TYPE_OATF_OA = 22,
+		RangeFinder_TYPE_UAVCAN = 23
     };
 
     enum RangeFinder_Function {

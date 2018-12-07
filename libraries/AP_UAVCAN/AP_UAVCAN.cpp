@@ -363,25 +363,21 @@ static void (*battery_info_st_cb_arr[2])(const uavcan::ReceivedDataStructure<uav
 static void rangeSensorCb(const uavcan::ReceivedDataStructure<uavcan::equipment::range_sensor::Measurement>& msg, uint8_t mgr)
 {
     AP_UAVCAN *ap_uavcan = AP_UAVCAN::get_uavcan(mgr);
+
     if (ap_uavcan == nullptr) {
         return;
     }
-//    
-//    AP_UAVCAN::BatteryInfo_Info *state = ap_uavcan->find_bi_id((uint16_t) msg.battery_id);
-//							       ap_uavcan->find_gps_node(msg.getSrcNodeID().get());
-//    if (state == nullptr) {
-//        return;
-//    }
 
-//    state->temperature = msg.temperature;
-//    state->voltage = msg.voltage;
-//    state->current = msg.current;
-//    state->full_charge_capacity_wh = msg.full_charge_capacity_wh;
-//    state->remaining_capacity_wh = msg.remaining_capacity_wh;
-//    state->status_flags = msg.status_flags;
+	RangeFinder::RangeFinder_State *state = ap_uavcan->find_range_finder_node(msg.getSrcNodeID().get());
+    if (state == nullptr) {
+        return;
+    }
 
-//    // after all is filled, update all listeners with new data
-//    ap_uavcan->update_bi_state((uint16_t) msg.battery_id);
+    if (!uavcan::isNaN(msg.range)) {
+        state->distance_cm = msg.range * 100.0f;
+    }
+	//hal.console->printf("msg.id is %d\r\n", msg.sensor_id);
+	ap_uavcan->update_range_finder_state(msg.getSrcNodeID().get());
 }
 
 
@@ -416,6 +412,11 @@ AP_UAVCAN::AP_UAVCAN() :
         _gps_node_taken[i] = 0;
     }
 
+	for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+        _range_finder_nodes[i] = UINT8_MAX;
+        _range_finder_node_taken[i] = 0;
+    }
+
     for (uint8_t i = 0; i < AP_UAVCAN_MAX_BARO_NODES; i++) {
         _baro_nodes[i] = UINT8_MAX;
         _baro_node_taken[i] = 0;
@@ -430,6 +431,9 @@ AP_UAVCAN::AP_UAVCAN() :
     for (uint8_t i = 0; i < AP_UAVCAN_MAX_LISTENERS; i++) {
         _gps_listener_to_node[i] = UINT8_MAX;
         _gps_listeners[i] = nullptr;
+
+		_range_finder_listener_to_node[i] = UINT8_MAX;
+        _range_finder_listeners[i] = nullptr;
 
         _baro_listener_to_node[i] = UINT8_MAX;
         _baro_listeners[i] = nullptr;
@@ -1011,6 +1015,140 @@ void AP_UAVCAN::update_gps_state(uint8_t node)
         for (uint8_t j = 0; j < AP_UAVCAN_MAX_LISTENERS; j++) {
             if (_gps_listener_to_node[j] == i) {
                 _gps_listeners[j]->handle_gnss_msg(_gps_node_state[i]);
+            }
+        }
+    }
+}
+
+// ------------------------------------------------ Range Finder
+uint8_t AP_UAVCAN::find_range_finder_without_listener(void)
+{
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_LISTENERS; i++) {
+        if (_range_finder_listeners[i] == nullptr && _range_finder_nodes[i] != UINT8_MAX) {
+            return _range_finder_nodes[i];
+        }
+    }
+
+    return UINT8_MAX;
+}
+
+uint8_t AP_UAVCAN::register_range_finder_listener(AP_RangeFinder_Backend* new_listener, uint8_t preferred_channel)
+{
+    uint8_t sel_place = UINT8_MAX, ret = 0;
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_LISTENERS; i++) {
+        if (_range_finder_listeners[i] == nullptr) {
+            sel_place = i;
+            break;
+        }
+    }
+
+    if (sel_place == UINT8_MAX) {
+        return 0;
+    }
+
+    if (preferred_channel != 0 && preferred_channel <= AP_UAVCAN_MAX_RANGE_FINDER_NODES) {
+        _range_finder_listeners[sel_place] = new_listener;
+        _range_finder_listener_to_node[sel_place] = preferred_channel - 1;
+        _range_finder_node_taken[_range_finder_listener_to_node[sel_place]]++;
+        ret = preferred_channel;
+
+        debug_uavcan(2, "reg_Range_Finder place:%d, chan: %d\n\r", sel_place, preferred_channel);
+    } else {
+        for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+            if (_range_finder_node_taken[i] == 0) {
+                _range_finder_listeners[sel_place] = new_listener;
+                _range_finder_listener_to_node[sel_place] = i;
+                _range_finder_node_taken[i]++;
+                ret = i + 1;
+
+                debug_uavcan(2, "reg_Range_Finder place:%d, chan: %d\n\r", sel_place, i);
+                break;
+            }
+        }
+    }
+
+    return ret;
+}
+
+uint8_t AP_UAVCAN::register_range_finder_listener_to_node(AP_RangeFinder_Backend* new_listener, uint8_t node)
+{
+    uint8_t sel_place = UINT8_MAX, ret = 0;
+
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_LISTENERS; i++) {
+        if (_range_finder_listeners[i] == nullptr) {
+            sel_place = i;
+            break;
+        }
+    }
+
+    if (sel_place == UINT8_MAX) {
+        return 0;
+    }
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+        if (_range_finder_nodes[i] == node) {
+            _range_finder_listeners[sel_place] = new_listener;
+            _range_finder_listener_to_node[sel_place] = i;
+            _range_finder_node_taken[i]++;
+            ret = i + 1;
+
+            debug_uavcan(2, "reg_Range_Finder place:%d, chan: %d\n\r", sel_place, i);
+            break;
+        }
+    }
+
+    return ret;
+}
+
+void AP_UAVCAN::remove_range_finder_listener(AP_RangeFinder_Backend* rem_listener)
+{
+    // Check for all listeners and compare pointers
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_LISTENERS; i++) {
+        if (_range_finder_listeners[i] == rem_listener) {
+            _range_finder_listeners[i] = nullptr;
+
+            // Also decrement usage counter and reset listening node
+            if (_range_finder_node_taken[_gps_listener_to_node[i]] > 0) {
+                _range_finder_node_taken[_gps_listener_to_node[i]]--;
+            }
+            _range_finder_listener_to_node[i] = UINT8_MAX;
+        }
+    }
+}
+
+
+RangeFinder::RangeFinder_State *AP_UAVCAN::find_range_finder_node(uint8_t node)
+{
+    // Check if such node is already defined
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+        if (_range_finder_nodes[i] == node) {
+            return &_range_finder_node_state[i];
+        }
+    }
+
+    // If not - try to find free space for it
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+        if (_range_finder_nodes[i] == UINT8_MAX) {
+            _range_finder_nodes[i] = node;
+            return &_range_finder_node_state[i];
+        }
+    }
+
+	// hal.console->printf("range_finder_node: %d, %d, %d, %d", _range_finder_nodes[0], _range_finder_nodes[1], _range_finder_nodes[2], _range_finder_nodes[3]);
+
+    // If no space is left - return nullptr
+    return nullptr;
+}
+
+void AP_UAVCAN::update_range_finder_state(uint8_t node)
+{
+    // Go through all listeners of specified node and call their's update methods
+    for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
+        if (_range_finder_nodes[i] != node) {
+            continue;
+        }
+        for (uint8_t j = 0; j < AP_UAVCAN_MAX_LISTENERS; j++) {
+            if (_range_finder_listener_to_node[j] == i) {
+                _range_finder_listeners[j]->handle_range_finder_msg(_range_finder_node_state[i].distance_cm);
             }
         }
     }
