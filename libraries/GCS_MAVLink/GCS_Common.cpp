@@ -72,7 +72,7 @@ GCS_MAVLINK::init(AP_HAL::UARTDriver *port, mavlink_channel_t mav_chan)
     snprintf(_perf_packet_name, sizeof(_perf_packet_name), "GCS_Packet_%u", chan);
     _perf_packet = hal.util->perf_alloc(AP_HAL::Util::PC_ELAPSED, _perf_packet_name);
 
-    snprintf(_perf_update_name, sizeof(_perf_update_name), "GCS_Update_%u", chan);
+    snprintf(_perf_update_name, sizeof(_perf_update_name), "GCS_Update_%u", chan); 
     _perf_update = hal.util->perf_alloc(AP_HAL::Util::PC_ELAPSED, _perf_update_name);
 
     initialised = true;
@@ -654,6 +654,14 @@ void GCS_MAVLINK::handle_radio_status(mavlink_message_t *msg, DataFlash_Class &d
     }
 }
 
+
+//gcs().send_text(MAV_SEVERITY_CRITICAL, "write wp  lat %d, lng %d\n\r", cmd.content.location.lat, cmd.content.location.lng); 
+/////////////////////////////////////////////////
+//struct AP_Mission::Mission_Command cmd2 = {};
+//mission.read_cmd_from_storage(1, cmd2);
+//gcs().send_text(MAV_SEVERITY_CRITICAL, "read wp  %d, lat %d, lng %d\n\r", cmd2.content.location.lat, cmd2.content.location.lng); 
+
+
 /*
   handle an incoming mission item
   return true if this is the last mission item, otherwise false
@@ -675,24 +683,26 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         if (result != MAV_MISSION_ACCEPTED) {
             goto mission_ack;
         }
-        
+
         seq = packet.seq;
         current = packet.current;
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp frame %d, alt %f\n\r", packet.frame, packet.z);
     } else {
         mavlink_mission_item_int_t packet;
         mavlink_msg_mission_item_int_decode(msg, &packet);
-        
+		
         // convert mavlink packet to mission command
         result = AP_Mission::mavlink_int_to_mission_cmd(packet, cmd);
         if (result != MAV_MISSION_ACCEPTED) {
             goto mission_ack;
         }
-        
+
         seq = packet.seq;
         current = packet.current;
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get wp param3 %f, p1 %f\n\r", packet.param3, packet.param1);
     }
 
-    if (current == 2) {                                               
+    if (current == 2) {
         // current = 2 is a flag to tell us this is a "guided mode"
         // waypoint and not for the mission
         result = (handle_guided_request(cmd) ? MAV_MISSION_ACCEPTED
@@ -742,7 +752,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         }
         // if command is at the end of command list, add the command
     } else if (seq == mission.num_commands()) {
-        if (mission.add_cmd(cmd)) {
+        if (mission.add_cmd(cmd)) {	
             result = MAV_MISSION_ACCEPTED;
         }else{
             result = MAV_MISSION_ERROR;
@@ -750,6 +760,7 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
         }
         // if beyond the end of the command list, return an error
     } else {
+
         result = MAV_MISSION_ERROR;
         goto mission_ack;
     }
@@ -1407,6 +1418,8 @@ void GCS_MAVLINK::handle_set_mode(mavlink_message_t* msg)
 
     const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
 
+	gcs().send_text(MAV_SEVERITY_CRITICAL, "set mode bm %d, cm %d\n\r", _base_mode, _custom_mode); 
+
     // send ACK or NAK
     mavlink_msg_command_ack_send_buf(msg, chan, MAVLINK_MSG_ID_SET_MODE, result);
 }
@@ -1753,10 +1766,12 @@ float GCS_MAVLINK::vfr_hud_climbrate() const
 
 void GCS_MAVLINK::send_vfr_hud()
 {
+	Vector3f relativePos;
     AP_AHRS &ahrs = AP::ahrs();
 
     // return values ignored; we send stale data
-    ahrs.get_position(global_position_current_loc);
+    // ahrs.get_position(global_position_current_loc);
+    ahrs.get_relative_position_NED_home(relativePos);
     ahrs.get_velocity_NED(vfr_hud_velned);
 
     mavlink_msg_vfr_hud_send(
@@ -1765,7 +1780,8 @@ void GCS_MAVLINK::send_vfr_hud()
         ahrs.groundspeed(),
         (ahrs.yaw_sensor / 100) % 360,
         vfr_hud_throttle(),
-        global_position_current_loc.alt * 0.01f, // cm -> m
+        // global_position_current_loc.alt * 0.01f, // cm -> m
+        -relativePos.z,
         vfr_hud_climbrate());
 }
 
@@ -2213,6 +2229,141 @@ void GCS_MAVLINK::handle_command_ack(const mavlink_message_t* msg)
     }
 }
 
+
+/*
+void GCS_MAVLINK::handle_set_mode(mavlink_message_t* msg)
+{
+    mavlink_set_mode_t packet;
+    mavlink_msg_set_mode_decode(msg, &packet);
+
+    const MAV_MODE _base_mode = (MAV_MODE)packet.base_mode;
+    const uint32_t _custom_mode = packet.custom_mode;
+
+    const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
+
+    // send ACK or NAK
+    mavlink_msg_command_ack_send_buf(msg, chan, MAVLINK_MSG_ID_SET_MODE, result);
+}
+
+beacon_common_param->function_settings = mavlink_msg_beacon_common_param_get_function_settings(msg);
+beacon_common_param->height = mavlink_msg_beacon_common_param_get_height(msg);
+beacon_common_param->width = mavlink_msg_beacon_common_param_get_width(msg);
+beacon_common_param->speed = mavlink_msg_beacon_common_param_get_speed(msg);
+beacon_common_param->flow = mavlink_msg_beacon_common_param_get_flow(msg);
+beacon_common_param->param4 = mavlink_msg_beacon_common_param_get_param4(msg);
+beacon_common_param->param5 = mavlink_msg_beacon_common_param_get_param5(msg);
+beacon_common_param->param6 = mavlink_msg_beacon_common_param_get_param6(msg);
+
+AP_Int32		beaconFuntionMask;
+AP_Int32		beaconHeight;
+AP_Int32		beaconWidth;
+AP_Int32		velocity;
+AP_Int32		flow;
+
+AP_Int32		aPointLatitude;
+AP_Int32		aPointLongitude;
+
+AP_Int32		bPointLatitude;
+AP_Int32		bPointLongitude;
+
+AP_Int32		breakPointLatitude; 
+AP_Int32		breakPointLongitude;
+AP_Int32		seqOfNextWayPoint;	// the seq of hte next wayPoint when the break event happend.
+AP_Int8 		breakDirection; 	// for AB break point only.
+
+
+
+
+special_point_info->latitude = mavlink_msg_special_point_info_get_latitude(msg);
+special_point_info->longitude = mavlink_msg_special_point_info_get_longitude(msg);
+special_point_info->point_type = mavlink_msg_special_point_info_get_point_type(msg);
+special_point_info->direction = mavlink_msg_special_point_info_get_direction(msg);
+special_point_info->seq = mavlink_msg_special_point_info_get_seq(msg);
+
+point type, 1: break point; 2: A point; 3: B point </field>
+
+
+
+mavlink_msg_special_point_info_request_decode(const mavlink_message_t* msg, mavlink_special_point_info_request_t* special_point_info_request)
+{
+#if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
+    special_point_info_request->point_type = mavlink_msg_special_point_info_request_get_point_type(msg);
+
+
+*/
+
+void GCS_MAVLINK::handle_beacon_message(const mavlink_message_t* msg)
+{
+	switch (msg->msgid) {
+	
+	case MAVLINK_MSG_ID_BEACON_COMMON_PARAM:
+		mavlink_beacon_common_param_t packet;
+	
+		mavlink_msg_beacon_common_param_decode(msg, &packet);
+
+		beaconParams.funtionMask = packet.function_settings;
+		beaconParams.height = packet.height;
+		beaconParams.width = packet.width;
+		beaconParams.velocity = packet.speed;
+		beaconParams.flow = packet.flow;
+
+		// send_text(MAV_SEVERITY_CRITICAL, "Get mask %d, h %d, w %d, spd %d, flw %d", beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow);
+		setBeaconParams();
+
+		// ACK
+		mavlink_msg_beacon_common_param_send(chan, beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow, 0, 0, 0);
+		break;
+	case MAVLINK_MSG_ID_BEACON_COMMON_PARAM_REQUEST:
+		mavlink_msg_beacon_common_param_send(chan, beaconParams.funtionMask, beaconParams.height, beaconParams.width, beaconParams.velocity, beaconParams.flow, 0, 0, 0);
+
+		break;
+	case MAVLINK_MSG_ID_SPECIAL_POINT_INFO:
+		mavlink_special_point_info_t packet1;
+		
+		mavlink_msg_special_point_info_decode(msg, &packet1);
+		switch(packet1.point_type){
+			
+		case 1: // Break point.
+			beaconParams.breakPointLatitude = packet1.latitude;
+			beaconParams.breakPointLongitude = packet1.longitude;
+			beaconParams.seqOfNextWayPoint = packet1.seq;
+			beaconParams.breakDirection = packet1.direction;
+
+			// send_text(MAV_SEVERITY_CRITICAL, "Get break lat %d, lon %d, seq %d, dir %d", beaconParams.breakPointLatitude, beaconParams.breakPointLongitude, beaconParams.seqOfNextWayPoint, beaconParams.breakDirection);
+			// mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, beaconParams.breakPointLatitude, beaconParams.breakPointLongitude);
+			break;
+		case 2: // A point
+			beaconParams.aPointLatitude = packet1.latitude;
+			beaconParams.aPointLongitude = packet1.longitude;
+		
+			break;
+		case 3: // B point
+			beaconParams.bPointLatitude = packet1.latitude;
+			beaconParams.bPointLongitude = packet1.longitude;
+		
+			break;
+		default:
+			break;
+		}
+	
+		setSpecialPointInfo(packet1.point_type);
+		
+		break;
+	case MAVLINK_MSG_ID_SPECIAL_POINT_INFO_REQUEST:
+		mavlink_special_point_info_request_t packet2;
+			
+		mavlink_msg_special_point_info_request_decode(msg, &packet2);
+		sendSpecialPointInfo(packet2.point_type);
+		
+		break;
+	default:
+		break;
+    }
+}
+
+
+
+
 /*
   handle messages which don't require vehicle specific data
  */
@@ -2348,6 +2499,14 @@ void GCS_MAVLINK::handle_common_message(mavlink_message_t *msg)
     case MAVLINK_MSG_ID_SYSTEM_TIME:
         handle_system_time_message(msg);
         break;
+
+	/************** FC add handler for beacon msg *************/
+	case MAVLINK_MSG_ID_BEACON_COMMON_PARAM:
+	case MAVLINK_MSG_ID_BEACON_COMMON_PARAM_REQUEST:
+	case MAVLINK_MSG_ID_SPECIAL_POINT_INFO:
+	case MAVLINK_MSG_ID_SPECIAL_POINT_INFO_REQUEST:
+        handle_beacon_message(msg); 
+        break;	
     }
 
 }
@@ -2654,6 +2813,8 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
 {
     MAV_RESULT result = MAV_RESULT_FAILED;
 
+//	gcs().send_text(MAV_SEVERITY_CRITICAL, "get command msg: %d\n\r", packet.command); 
+
     switch (packet.command) {
 
     case MAV_CMD_DO_SET_MODE:
@@ -2726,40 +2887,58 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_message(mavlink_command_long_t &pack
         result = handle_flight_termination(packet);
         break;
 
+
+	/*
+		case 2:		// A Point
+			mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
+			break;
+		case 3:		// B Point
+			mavlink_msg_special_point_info_send(chan, packet2.point_type, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
+			break;
+		default:
+			break;
+	*/
+
+
 	/* -------------------------------------
     // FC: Beacon Y1 add custom MAV_CMD case.
     *-------------------------------------*/
     case MAV_CMD_GET_POINT_A:
-	result = MAV_RESULT_ACCEPTED;
-	send_text(MAV_SEVERITY_CRITICAL, "Get A point.");
-	// hal.console->printf("test haha");
-	// mavlink_msg_fc_heartbeat_send( chan, 8);
-        //result = handle_get_point_A();
-        break;
     case MAV_CMD_GET_POINT_B:
-	result = MAV_RESULT_ACCEPTED;
-	// mavlink_msg_fc_heartbeat_send( chan, 9);
-        //result = handle_get_point_A();
+	 	 result = handle_command_get_point_ab(packet);
+
+		// TODO: For test only, 
+		if(MAV_CMD_GET_POINT_A == packet.command){
+			//mavlink_msg_special_point_info_send(chan, 2, 0, 0, beaconParams.aPointLatitude, beaconParams.aPointLongitude);
+			// mavlink_msg_special_point_info_send(chan, 2, 0, 0, copter.current_loc.lat, copter.current_loc.lng);
+		}else{
+			//mavlink_msg_special_point_info_send(chan, 3, 0, 0, beaconParams.bPointLatitude, beaconParams.bPointLongitude);
+			// mavlink_msg_special_point_info_send(chan, 3, 0, 0, copter.current_loc.lat, copter.current_loc.lng);
+		}
+		
+		result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_CLEAR_POINT_AB:
-	result = MAV_RESULT_ACCEPTED;
-	// mavlink_msg_fc_heartbeat_send( chan, 10);
-        //result = handle_get_point_A();
+		result = handle_command_clear_point_ab();
+		result = MAV_RESULT_ACCEPTED;
         break;
+	 
+	case MAV_CMD_SET_MODE_AB:
+		result = MAV_RESULT_ACCEPTED;
+        break;
+	
     case MAV_CMD_START_WORK:
-	result = MAV_RESULT_ACCEPTED;
-	//mavlink_msg_fc_heartbeat_send( chan, 11);
-        //result = handle_get_point_A();
+		result = handle_command_start_work(packet);
+		//result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_PAUSE_WORK:
-	result = MAV_RESULT_ACCEPTED;
-	//mavlink_msg_fc_heartbeat_send( chan, 12);
-        //result = handle_get_point_A();
+		result = handle_command_pause_work();
+		// mavlink_msg_special_point_info_send(chan, 1, beaconParams.breakDirection, beaconParams.seqOfNextWayPoint, 225740000, 1141234067);
+		result = MAV_RESULT_ACCEPTED;
         break;
     case MAV_CMD_FINISH_WORK:
-	result = MAV_RESULT_ACCEPTED;
-	//mavlink_msg_fc_heartbeat_send( chan, 13);
-        //result = handle_get_point_A();
+		result = handle_command_finish_work();
+		result = MAV_RESULT_ACCEPTED;
         break;
 
     default:
@@ -3109,6 +3288,7 @@ void GCS_MAVLINK::data_stream_send(void)
     }
 
     for (uint8_t i=0; all_stream_entries[i].ap_message_ids != nullptr; i++) {
+
         const streams id = (streams)all_stream_entries[i].stream_id;
         if (!stream_trigger(id)) {
             continue;

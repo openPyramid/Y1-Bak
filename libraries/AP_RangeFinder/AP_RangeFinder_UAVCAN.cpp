@@ -13,10 +13,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "AP_RangeFinder_MAVLink.h"
+#include "AP_RangeFinder_UAVCAN.h"
 #include <AP_HAL/AP_HAL.h>
-
-
 
 extern const AP_HAL::HAL& hal;
 
@@ -25,7 +23,7 @@ extern const AP_HAL::HAL& hal;
    constructor is not called until detect() returns true, so we
    already know that we should setup the rangefinder
 */
-AP_RangeFinder_MAVLink::AP_RangeFinder_MAVLink(RangeFinder::RangeFinder_State &_state) :
+AP_RangeFinder_UAVCAN::AP_RangeFinder_UAVCAN(RangeFinder::RangeFinder_State &_state) :
     AP_RangeFinder_Backend(_state)
 {
     last_update_ms = AP_HAL::millis();
@@ -33,40 +31,32 @@ AP_RangeFinder_MAVLink::AP_RangeFinder_MAVLink(RangeFinder::RangeFinder_State &_
 }
 
 /*
-   detect if a MAVLink rangefinder is connected. We'll detect by
+   detect if a UAVCAN rangefinder is connected. We'll detect by
    checking a parameter.
 */
-bool AP_RangeFinder_MAVLink::detect()
+bool AP_RangeFinder_UAVCAN::detect()
 {
     // Assume that if the user set the RANGEFINDER_TYPE parameter to UAVCAN,
     // there is an attached UAVCAN rangefinder
     return true;
 }
 
-/*
-   Set the distance based on a MAVLINK message
-*/
-void AP_RangeFinder_MAVLink::handle_msg(mavlink_message_t *msg)
+bool AP_RangeFinder_UAVCAN::handle_range_finder_msg(uint16_t &range_cm)
 {
-    mavlink_distance_sensor_t packet;
-    mavlink_msg_distance_sensor_decode(msg, &packet);
+	last_update_ms = AP_HAL::millis();
+	distance_cm = range_cm;
 
-    // only accept distances for downward facing sensors
-    if (packet.orientation == MAV_SENSOR_ROTATION_PITCH_270) {
-        last_update_ms = AP_HAL::millis();
-        distance_cm = packet.current_distance;
-    }
-    sensor_type = (MAV_DISTANCE_SENSOR)packet.type;
+	return true;
 }
 
 /*
    update the state of the sensor
 */
-void AP_RangeFinder_MAVLink::update(void)
+void AP_RangeFinder_UAVCAN::update(void)
 {
     //Time out on incoming data; if we don't get new
     //data in 500ms, dump it
-    if(AP_HAL::millis() - last_update_ms > AP_RANGEFINDER_MAVLINK_TIMEOUT_MS) {
+    if(AP_HAL::millis() - last_update_ms > AP_RANGEFINDER_UAVCAN_TIMEOUT_MS) {
         set_status(RangeFinder::RangeFinder_NoData);
         state.distance_cm = 0;
     } else {

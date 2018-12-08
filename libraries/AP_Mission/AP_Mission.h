@@ -389,6 +389,10 @@ public:
     uint16_t get_current_nav_index() const { 
         return _nav_cmd.index==AP_MISSION_CMD_INDEX_NONE?0:_nav_cmd.index; }
 
+    void set_current_nav_index(uint16_t index) {
+		_nav_cmd.index = index; }
+
+
     /// get_prev_nav_cmd_id - returns the previous "navigation" command id
     ///     if there was no previous nav command it returns AP_MISSION_CMD_ID_NONE
     ///     we do not return the entire command to save on RAM
