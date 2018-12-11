@@ -404,6 +404,10 @@ void Copter::three_hz_loop()
 
 #if SPRAYER_ENABLED == ENABLED
     sprayer.update();
+
+	#if HAL_WITH_UAVCAN
+	sprayer.set_agr(ahrs.groundspeed(), 3.14f, 40);
+	#endif
 #endif
 
     update_events();

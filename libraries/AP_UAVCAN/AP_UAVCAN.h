@@ -49,6 +49,9 @@
 #define AP_UAVCAN_MAX_LED_DEVICES 4
 #define AP_UAVCAN_LED_DELAY_MILLISECONDS 50
 
+#define AP_UAVCAN_AGR_DELAY_MILLISECONDS 300
+
+
 class AP_UAVCAN {
 public:
     AP_UAVCAN();
@@ -137,6 +140,9 @@ public:
     void led_out_sem_give();
     void led_out_send();
 
+	// send Agr cmd
+	void agr_cmd_send();
+
     // output from do_cyclic
     void SRV_send_servos();
     void SRV_send_esc();
@@ -217,8 +223,18 @@ private:
         uint64_t last_update;
     } _led_conf;
 
+    struct {
+		bool broadcast_enabled;
+        uint16_t fluid;
+        uint16_t velocity;
+        uint8_t velBase;  	// velBase = base*10.  (0~250) map (0~25m/s)
+        uint64_t last_update;
+    } _agr_conf;
+
+
     AP_HAL::Semaphore *SRV_sem;
     AP_HAL::Semaphore *_led_out_sem;
+
 
     class SystemClock: public uavcan::ISystemClock, uavcan::Noncopyable {
         SystemClock()
@@ -297,6 +313,7 @@ public:
     void SRV_write(uint16_t pulse_len, uint8_t ch);
     void SRV_push_servos(void);
     bool led_write(uint8_t led_index, uint8_t red, uint8_t green, uint8_t blue);
+	bool agr_write(float vel, float fluid, uint8_t velBase) ;
 
     void set_parent_can_mgr(AP_HAL::CANManager* parent_can_mgr)
     {

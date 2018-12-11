@@ -34,6 +34,8 @@
 #include <uavcan/equipment/indication/RGB565.hpp>
 
 #include <uavcan/equipment/power/BatteryInfo.hpp>
+#include <uavcan/equipment/power/CircuitStatus.hpp>
+
 
 #include <uavcan/equipment/range_sensor/Measurement.hpp>
 
@@ -395,6 +397,9 @@ static void (*rangeSensorCbArr[2])(const uavcan::ReceivedDataStructure<uavcan::e
 static uavcan::Publisher<uavcan::equipment::actuator::ArrayCommand>* act_out_array[MAX_NUMBER_OF_CAN_DRIVERS];
 static uavcan::Publisher<uavcan::equipment::esc::RawCommand>* esc_raw[MAX_NUMBER_OF_CAN_DRIVERS];
 static uavcan::Publisher<uavcan::equipment::indication::LightsCommand>* rgb_led[MAX_NUMBER_OF_CAN_DRIVERS];
+static uavcan::Publisher<uavcan::equipment::power::CircuitStatus>* agr_cmd_sender[MAX_NUMBER_OF_CAN_DRIVERS];
+
+// uavcan.equipment.power.CircuitStatus
 
 AP_UAVCAN::AP_UAVCAN() :
     _node_allocator(
@@ -601,6 +606,11 @@ bool AP_UAVCAN::try_init(void)
 
     _led_conf.devices_count = 0;
 
+	agr_cmd_sender[_uavcan_i] = new uavcan::Publisher<uavcan::equipment::power::CircuitStatus>(*node); 
+	agr_cmd_sender[_uavcan_i]->setTxTimeout(uavcan::MonotonicDuration::fromMSec(20));
+	agr_cmd_sender[_uavcan_i]->setPriority(uavcan::TransferPriority::OneHigherThanLowest);
+
+
     /*
      * Informing other nodes that we're ready to work.
      * Default mode is INITIALIZING.
@@ -726,7 +736,7 @@ void AP_UAVCAN::do_cyclic(void)
         hal.scheduler->delay_microseconds(1000);
         return;
     }
-
+	
     auto *node = get_node();
 
     const int error = node->spin(uavcan::MonotonicDuration::fromMSec(1));
@@ -769,6 +779,7 @@ void AP_UAVCAN::do_cyclic(void)
         led_out_sem_give();
     }
 
+	agr_cmd_send();
 }
 
 bool AP_UAVCAN::led_out_sem_take()
@@ -801,6 +812,21 @@ void AP_UAVCAN::led_out_send()
 
         rgb_led[_uavcan_i]->broadcast(msg);
         _led_conf.last_update = AP_HAL::micros64();
+    }
+}
+
+void AP_UAVCAN::agr_cmd_send()
+{
+    if (_agr_conf.broadcast_enabled && ((AP_HAL::micros64() - _agr_conf.last_update) > (AP_UAVCAN_AGR_DELAY_MILLISECONDS * 1000))) {
+		uavcan::equipment::power::CircuitStatus msg;
+
+		msg.circuit_id = 1;
+		msg.voltage = _agr_conf.velocity;
+		msg.current = _agr_conf.fluid;
+		msg.error_flags = _agr_conf.velBase;
+
+		agr_cmd_sender[_uavcan_i]->broadcast(msg);
+		_agr_conf.last_update = AP_HAL::micros64();
     }
 }
 
@@ -1600,6 +1626,18 @@ bool AP_UAVCAN::led_write(uint8_t led_index, uint8_t red, uint8_t green, uint8_t
     led_out_sem_give();
     return true;
 }
+
+bool AP_UAVCAN::agr_write(float vel, float fluid, uint8_t velBase) {
+
+	_agr_conf.velocity = vel;
+	_agr_conf.fluid = fluid;
+	_agr_conf.velBase = velBase;
+
+    _agr_conf.broadcast_enabled = true;
+
+    return true;
+}
+
 
 AP_UAVCAN *AP_UAVCAN::get_uavcan(uint8_t iface)
 {
