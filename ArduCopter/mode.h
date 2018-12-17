@@ -294,6 +294,7 @@ public:
     bool change_shiftwidth(uint16_t new_width_cm);
     bool save_ab_shiftdir(int8_t direction);
     void save_ab_shiftdir_RC();
+    void set_ab_desired_terrain_alt(uint16_t desired_alt_cm);
     bool exit_ab_mode(bool end_mission);
     bool handle_RC_exit_ab_mode();
 

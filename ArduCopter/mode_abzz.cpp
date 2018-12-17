@@ -554,6 +554,14 @@ bool Copter::ModeABZz::change_shiftwidth(uint16_t new_width_cm)
     return true;
 }
 
+void Copter::ModeABZz::set_ab_desired_terrain_alt(uint16_t desired_alt_cm)
+{
+    if(150>desired_alt_cm) desired_alt_cm = 150;
+    else if(600<desired_alt_cm) desired_alt_cm = 600;
+        
+    copter.wp_nav->set_wp_desired_terrain_alt(desired_alt_cm);
+}
+
 bool Copter::ModeABZz::generate_next_abline()
 {
     //if someone is using ab point data return right now
