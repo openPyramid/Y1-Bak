@@ -60,6 +60,10 @@ public:
     void set_pump_mode(Pump_mode_en mode);
     Pump_mode_en get_pump_mode() const {return _pump_mode;};
 
+#if HAL_WITH_UAVCAN
+	bool set_agr(float vel, float fluid, uint8_t velBase);
+#endif
+
     //set max flight ground speed for auto spraying.
     void set_max_ground_speed(int16_t speed_cms);
 

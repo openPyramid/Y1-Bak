@@ -1900,11 +1900,10 @@ uint32_t GCS_MAVLINK_Copter::setBeaconParams()
 	copter.beaconParams.flow = beaconParams.flow;
     
         if(copter.flightmode == &copter.mode_abzz){    
+			copter.wp_nav->set_speed_xy(copter.beaconParams.velocity);
             copter.mode_abzz.set_ab_desired_terrain_alt(copter.beaconParams.height);
             copter.mode_abzz.save_ab_shiftdir(copter.beaconParams.width>0? 1 : -1);
         }
-	
-	// gcs().send_text(MAV_SEVERITY_CRITICAL, "set beacon params, funcition mask: %d\n\r", copter.beaconParams.funtionMask);
 
 	return 0;
 }

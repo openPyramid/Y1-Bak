@@ -60,7 +60,7 @@ void Copter::Mode::_TakeOff::start(float alt_cm)
 
     // initialise takeoff state
     _running = true;
-    max_speed = speed;
+    max_speed = speed / 1.5f;
     start_ms = millis();
     alt_delta = alt_cm;
 }
@@ -154,7 +154,7 @@ void Copter::auto_takeoff_set_start_alt(void)
 void Copter::auto_takeoff_attitude_run(float target_yaw_rate)
 {
     float nav_roll, nav_pitch;
-    
+
     if (g2.wp_navalt_min > 0 && inertial_nav.get_altitude() < auto_takeoff_no_nav_alt_cm) {
         // we haven't reached the takeoff navigation altitude yet
         nav_roll = 0;

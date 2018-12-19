@@ -343,6 +343,8 @@ public:
     ///     previous running commands will be re-initialised
     void resume();
 
+	void set_nav_cmd_index(uint16_t index);
+
     /// start_or_resume - if MIS_AUTORESTART=0 this will call resume(), otherwise it will call start()
     void start_or_resume();
 

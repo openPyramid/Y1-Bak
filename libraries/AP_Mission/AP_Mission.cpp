@@ -112,7 +112,7 @@ void AP_Mission::resume()
     }
 
 	if(_nav_cmd.index > 1){
-		_nav_cmd.index = _nav_cmd.index - 1;
+		// _nav_cmd.index = _nav_cmd.index - 1;
 
 		_nav_cmd.content.location.lat = 1;
 		_nav_cmd.content.location.lng = 1;
@@ -133,6 +133,11 @@ void AP_Mission::resume()
     if (_flags.do_cmd_loaded && _do_cmd.index != AP_MISSION_CMD_INDEX_NONE) {
         _cmd_start_fn(_do_cmd);
     }
+}
+
+void AP_Mission::set_nav_cmd_index(uint16_t index)
+{
+	if(index > 0) _nav_cmd.index = index;
 }
 
 /// check mission starts with a takeoff command

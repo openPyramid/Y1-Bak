@@ -62,6 +62,19 @@ void Copter::ModeRTL::run(bool disarm_on_land)
         }
     }
 
+	float target_throttle_rate = 0;
+	float target_roll_angle = 0;
+	float target_pitch_angle = 0;
+
+    if (!copter.failsafe.radio) {
+		target_throttle_rate = get_pilot_desired_climb_rate(channel_throttle->get_control_in());
+	
+		copter.flightmode->get_pilot_desired_lean_angles(target_roll_angle, target_pitch_angle, (float)copter.aparm.angle_max, (float)copter.aparm.angle_max);
+		if( fabsf(target_throttle_rate)>40|| fabsf(target_roll_angle)>1000 || fabsf(target_pitch_angle)>1000) {
+			copter.set_mode(LOITER, MODE_REASON_TX_COMMAND);
+		}
+    }
+
     // call the correct run function
     switch (_state) {
 

@@ -1,6 +1,12 @@
 #include <AP_HAL/AP_HAL.h>
 #include "AC_Sprayer.h"
 
+#if HAL_WITH_UAVCAN
+#include <AP_UAVCAN/AP_UAVCAN.h>
+#include <AP_BoardConfig/AP_BoardConfig_CAN.h>
+#endif
+
+
 extern const AP_HAL::HAL& hal;
 
 // ------------------------------
@@ -60,6 +66,7 @@ AC_Sprayer::AC_Sprayer()
         _spinner_pwm.set_and_save(AC_SPRAYER_DEFAULT_SPINNER_PWM);
     }
     _flags.inited = false;
+
     // To-Do: ensure that the pump and spinner servo channels are enabled
 }
 
@@ -80,9 +87,9 @@ void AC_Sprayer::init()
 
     SRV_Channels::set_output_limit(SRV_Channel::k_sprayer_pump, SRV_Channel::SRV_CHANNEL_LIMIT_MIN);
     SRV_Channels::set_output_limit(SRV_Channel::k_sprayer_spinner, SRV_Channel::SRV_CHANNEL_LIMIT_MIN);
-    
+
     _flags.inited = true;
-    }
+}
 
 //set max flight ground speed for auto spraying.
 void AC_Sprayer::set_max_ground_speed(int16_t speed_cms)
@@ -122,6 +129,26 @@ void AC_Sprayer::handle_cmd_auto(const bool enable)
         _cmd_auto_enable = enable;
     }
 }
+
+#if HAL_WITH_UAVCAN
+bool AC_Sprayer::set_agr(float vel, float fluid, uint8_t velBase)
+{
+    bool success = false;
+    if (AP_BoardConfig_CAN::get_can_num_ifaces() != 0) {
+        for (uint8_t i = 0; i < MAX_NUMBER_OF_CAN_DRIVERS; i++) {
+            if (hal.can_mgr[i] != nullptr) {
+                AP_UAVCAN *uavcan = hal.can_mgr[i]->get_UAVCAN();
+                if (uavcan != nullptr) {
+                    success |= uavcan->agr_write(vel, fluid, velBase);
+					hal.console->printf("agr cmd vel %f, fluid %f, velBase %dr\n", vel, fluid, velBase);
+                }
+            }
+        }
+    }
+    return success;
+}
+#endif
+
 void AC_Sprayer::check_tankempty()
 {
 // TODO: get level sensor status from agr module and the flow sensor
