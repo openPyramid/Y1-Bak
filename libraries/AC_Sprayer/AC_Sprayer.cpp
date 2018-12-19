@@ -87,6 +87,8 @@ void AC_Sprayer::init()
 
     SRV_Channels::set_output_limit(SRV_Channel::k_sprayer_pump, SRV_Channel::SRV_CHANNEL_LIMIT_MIN);
     SRV_Channels::set_output_limit(SRV_Channel::k_sprayer_spinner, SRV_Channel::SRV_CHANNEL_LIMIT_MIN);
+
+    _flags.inited = true;
 }
 
 //set max flight ground speed for auto spraying.
@@ -110,7 +112,6 @@ void AC_Sprayer::handle_cmd_manual(const bool true_false)
     //init output value if not init
     if(!_flags.inited){
         init();
-        _flags.inited = true;
     }else if(true_false){
         _triggle_manual = true;
     }
@@ -123,7 +124,6 @@ void AC_Sprayer::handle_cmd_auto(const bool enable)
     //init output value if not init
     if(!_flags.inited){
         init();
-        _flags.inited = true;
     }else{
         _triggle_auto = true;
         _cmd_auto_enable = enable;
@@ -163,8 +163,8 @@ void AC_Sprayer::check_tankempty()
 void AC_Sprayer::set_pump_mode(Pump_mode_en mode)
 {
     if(mode==Auto){
-        //we force _state to Suspend once when we are begin to inter auto agrmode
-        _state = Suspend;
+        //we force _state to Suspend once if we at Stop state and begin to inter auto agrmode
+        if(_state==Stop) _state = Suspend;
     }
     _pump_mode = mode;
 }
@@ -183,9 +183,8 @@ void AC_Sprayer::stop_spraying()
 /// update - adjust pwm of servo controlling pump speed according to the desired quantity and our horizontal speed
 void AC_Sprayer::update()
 {
-    //init output value if not init
+    //we must init by before update sprayer status
     if(!_flags.inited){
-        init();
         return ;
      }
 
@@ -232,7 +231,6 @@ void AC_Sprayer::update()
                 _triggle_tankempty = false;
             }else if(_triggle_auto){
                 if(!_cmd_auto_enable) _state = Suspend;
-
                 _triggle_auto = false;
             }
              break;

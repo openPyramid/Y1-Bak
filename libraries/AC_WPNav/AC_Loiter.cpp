@@ -158,6 +158,7 @@ void AC_Loiter::set_pilot_desired_speed_max_temporary(const float speed_max)
 {
     _speed_temp_cms = MIN(_speed_cms, speed_max);
     _speed_temp_cms = MAX(_speed_temp_cms, LOITER_SPEED_MIN);
+    _pos_control.init_xy_controller();
 }
 
 

@@ -113,6 +113,7 @@ void AP_Mission::resume()
 
 	if(_nav_cmd.index > 1){
 		// _nav_cmd.index = _nav_cmd.index - 1;
+
 		_nav_cmd.content.location.lat = 1;
 		_nav_cmd.content.location.lng = 1;
 	}

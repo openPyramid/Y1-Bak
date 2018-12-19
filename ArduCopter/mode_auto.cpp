@@ -43,8 +43,6 @@ bool Copter::ModeAuto::init(bool ignore_checks)
         // clear guided limits
         copter.mode_guided.limit_clear();
 
-		gcs().send_text(MAV_SEVERITY_CRITICAL, "form modeAuto::init -- fc\n\r");
-
 		// bearing calc is needed.
 		copter.beaconParams.needCalcBearingFlag = 1;
 		copter.beaconParams.calcBearingMS = 0;
@@ -207,6 +205,8 @@ void Copter::ModeAuto::wp_start(const Location_Class& dest_loc)
 {
 	float fTemp1, fTemp2;
     _mode = Auto_WP;
+
+	gcs().send_text(MAV_SEVERITY_CRITICAL, "wp_start ----fc 2\n\r"); 
 
     // send target to waypoint controller
     if (!wp_nav->set_wp_destination(dest_loc)) {
@@ -1129,7 +1129,7 @@ void Copter::ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
 		if(copter.beaconParams.seqOfNextWayPoint > 1) {
 			copter.mission.set_nav_cmd_index(copter.beaconParams.seqOfNextWayPoint - 1);
 		}
-		
+
 		target_loc.lat = copter.beaconParams.breakPointLatitude;
 		target_loc.lng = copter.beaconParams.breakPointLongitude;
 		target_loc.flags.unused1 = copter.beaconParams.sprayFlag;

@@ -39,6 +39,8 @@
 
 #include <uavcan/equipment/range_sensor/Measurement.hpp>
 
+#include <uavcan/equipment/range_sensor/Measurement.hpp>
+
 extern const AP_HAL::HAL& hal;
 
 #define debug_uavcan(level, fmt, args...) do { if ((level) <= AP_BoardConfig_CAN::get_can_debug()) { hal.console->printf(fmt, ##args); }} while (0)
