@@ -391,6 +391,8 @@ void Copter::twentyfive_hz_logging()
 // three_hz_loop - 3.3hz loop
 void Copter::three_hz_loop()
 {
+	static int i;
+
     // check if we've lost contact with the ground station
     failsafe_gcs_check();
 
@@ -406,7 +408,12 @@ void Copter::three_hz_loop()
     sprayer.update();
 
 	#if HAL_WITH_UAVCAN
-	sprayer.set_agr(ahrs.groundspeed(), 3.14f, 40);
+	if(i++ %30 == 1) {
+		sprayer.set_agr(ahrs.groundspeed(), 0, 40);
+	}
+	else if (i%30 == 15) {
+		sprayer.set_agr(ahrs.groundspeed(), 1000, 40);
+	}
 	#endif
 #endif
 

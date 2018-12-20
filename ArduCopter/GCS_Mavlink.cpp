@@ -1922,6 +1922,8 @@ uint32_t GCS_MAVLINK_Copter::setSpecialPointInfo(uint8_t type)
 		copter.beaconParams.breakPointLongitude = beaconParams.breakPointLongitude;
 		copter.beaconParams.breakDirection = beaconParams.breakDirection;
 		copter.beaconParams.seqOfNextWayPoint = beaconParams.seqOfNextWayPoint;
+
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "Get break point: seq %d\n\r", copter.beaconParams.seqOfNextWayPoint );
 	} else {
 		gcs().send_text(MAV_SEVERITY_CRITICAL, "Get error beacon special point: id %d\n\r", type);
 	}

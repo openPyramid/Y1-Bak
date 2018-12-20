@@ -936,6 +936,7 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
             cmd.content.location.flags.relative_alt = 1;
             // mark altitude as above terrain, not above home
             cmd.content.location.flags.terrain_alt = 1;
+			gcs().send_text(MAV_SEVERITY_CRITICAL, "MAV_FRAME_GLOBAL_TERRAIN_ALT ----\n\r");
             break;
 #endif
 

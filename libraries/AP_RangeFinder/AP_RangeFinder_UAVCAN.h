@@ -29,7 +29,7 @@ private:
     uint16_t distance_cm;
     uint32_t last_update_ms;
 
-	bool handle_range_finder_msg(uint16_t &range_cm) override;
+	bool handle_range_finder_msg(uint16_t &range_cm, uint8_t readingType) override;
 
     // MAV_DISTANCE_SENSOR sensor_type = MAV_DISTANCE_SENSOR_UNKNOWN;
 };

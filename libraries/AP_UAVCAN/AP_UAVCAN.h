@@ -89,7 +89,7 @@ public:
 	uint8_t find_range_finder_without_listener(void);
 	void remove_range_finder_listener(AP_RangeFinder_Backend* rem_listener);
 	RangeFinder::RangeFinder_State *find_range_finder_node(uint8_t node);
-	void update_range_finder_state(uint8_t node);
+	void update_range_finder_state(uint8_t node, uint8_t sensorId, uint8_t readingType);
 
     struct Baro_Info {
         float pressure;

@@ -32,7 +32,7 @@ public:
     virtual void update() = 0;
 
     virtual void handle_msg(mavlink_message_t *msg) { return; }
-	virtual bool handle_range_finder_msg(uint16_t &range_cm) { return true; }
+	virtual bool handle_range_finder_msg(uint16_t &range_cm, uint8_t readingType) { return true; }
 
     void update_pre_arm_check();
 

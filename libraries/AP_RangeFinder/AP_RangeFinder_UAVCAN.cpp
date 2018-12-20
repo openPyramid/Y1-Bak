@@ -41,10 +41,12 @@ bool AP_RangeFinder_UAVCAN::detect()
     return true;
 }
 
-bool AP_RangeFinder_UAVCAN::handle_range_finder_msg(uint16_t &range_cm)
+bool AP_RangeFinder_UAVCAN::handle_range_finder_msg(uint16_t &range_cm, uint8_t readingType)
 {
-	last_update_ms = AP_HAL::millis();
-	distance_cm = range_cm;
+	if(1 == readingType) {
+		last_update_ms = AP_HAL::millis();
+		distance_cm = range_cm;
+	}
 
 	return true;
 }

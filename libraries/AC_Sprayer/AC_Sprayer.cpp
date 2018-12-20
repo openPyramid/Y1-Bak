@@ -140,7 +140,7 @@ bool AC_Sprayer::set_agr(float vel, float fluid, uint8_t velBase)
                 AP_UAVCAN *uavcan = hal.can_mgr[i]->get_UAVCAN();
                 if (uavcan != nullptr) {
                     success |= uavcan->agr_write(vel, fluid, velBase);
-					hal.console->printf("agr cmd vel %f, fluid %f, velBase %dr\n", vel, fluid, velBase);
+					// hal.console->printf("agr cmd vel %f, fluid %f, velBase %dr\n", vel, fluid, velBase);
                 }
             }
         }

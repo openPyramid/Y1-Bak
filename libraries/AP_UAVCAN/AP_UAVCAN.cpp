@@ -340,7 +340,7 @@ static void battery_info_st_cb(const uavcan::ReceivedDataStructure<uavcan::equip
     if (ap_uavcan == nullptr) {
         return;
     }
-    
+
     AP_UAVCAN::BatteryInfo_Info *state = ap_uavcan->find_bi_id((uint16_t) msg.battery_id);
     if (state == nullptr) {
         return;
@@ -381,7 +381,7 @@ static void rangeSensorCb(const uavcan::ReceivedDataStructure<uavcan::equipment:
         state->distance_cm = msg.range * 100.0f;
     }
 	//hal.console->printf("msg.id is %d\r\n", msg.sensor_id);
-	ap_uavcan->update_range_finder_state(msg.getSrcNodeID().get());
+	ap_uavcan->update_range_finder_state(msg.getSrcNodeID().get(), msg.sensor_id, msg.reading_type);
 }
 
 
@@ -1167,7 +1167,7 @@ RangeFinder::RangeFinder_State *AP_UAVCAN::find_range_finder_node(uint8_t node)
     return nullptr;
 }
 
-void AP_UAVCAN::update_range_finder_state(uint8_t node)
+void AP_UAVCAN::update_range_finder_state(uint8_t node, uint8_t sensorId, uint8_t readingType)
 {
     // Go through all listeners of specified node and call their's update methods
     for (uint8_t i = 0; i < AP_UAVCAN_MAX_RANGE_FINDER_NODES; i++) {
@@ -1176,7 +1176,11 @@ void AP_UAVCAN::update_range_finder_state(uint8_t node)
         }
         for (uint8_t j = 0; j < AP_UAVCAN_MAX_LISTENERS; j++) {
             if (_range_finder_listener_to_node[j] == i) {
-                _range_finder_listeners[j]->handle_range_finder_msg(_range_finder_node_state[i].distance_cm);
+
+				if(3 == sensorId) {
+					_range_finder_listeners[j]->handle_range_finder_msg(_range_finder_node_state[i].distance_cm, readingType);
+					// hal.console->printf("get lidar data: %d\r\n", _range_finder_node_state[i].distance_cm);
+				}
             }
         }
     }
