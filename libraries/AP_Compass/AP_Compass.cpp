@@ -453,7 +453,13 @@ const AP_Param::GroupInfo Compass::var_info[] = {
     // @Description: When enabled this will automatically check the orientation of compasses on successful completion of compass calibration. If set to 2 then external compasses will have their orientation automatically corrected.
     // @Values: 0:Disabled,1:CheckOnly,2:CheckAndFix
     AP_GROUPINFO("AUTO_ROT", 35, Compass, _rotate_auto, HAL_COMPASS_AUTO_ROT_DEFAULT),
-    
+
+    // @Param: SIDE_MSK
+    // @DisplayName: side sample mask
+    // @Description: used for side236 calibrator, only support value of 3 11 63, to deside what type(2,3,6) of side sample being applied
+    // @Values: 3:two sides,11:three sides,63:six sides
+    AP_GROUPINFO("SIDE_MSK", 36, Compass, _sample_side_mask, HAL_COMPASS_CALIB_SIDE_MASK),
+
     AP_GROUPEND
 };
 

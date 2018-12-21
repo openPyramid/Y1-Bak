@@ -4,6 +4,7 @@
 
 #include "AP_Compass.h"
 
+#if HAL_COMPASS_CALIB_SIDE236 == 0
 extern AP_HAL::HAL& hal;
 
 void
@@ -356,3 +357,4 @@ MAV_RESULT Compass::handle_mag_cal_command(const mavlink_command_long_t &packet)
     
     return result;
 }
+#endif
