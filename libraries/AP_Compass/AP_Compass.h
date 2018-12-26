@@ -56,6 +56,9 @@ enum compass_group_prefit_status_t{
 #endif
 #endif
 
+#ifndef HAL_COMPASS_CALIB_SIDE_MASK
+#define HAL_COMPASS_CALIB_SIDE_MASK 3
+#endif
 
 // define default compass calibration fitness and consistency checks
 #define AP_COMPASS_CALIBRATION_FITNESS_DEFAULT 16.0f
