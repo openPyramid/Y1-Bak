@@ -53,6 +53,7 @@ bool AP_Arming_Copter::pre_arm_checks(bool display_failure)
     }
 
     return fence_checks(display_failure)
+    	& auth_checks(display_failure)
         & parameter_checks(display_failure)
         & motor_checks(display_failure)
         & pilot_throttle_checks(display_failure) &
@@ -115,6 +116,18 @@ bool AP_Arming_Copter::fence_checks(bool display_failure)
     #endif
     return true;
 }
+
+bool AP_Arming_Copter::auth_checks(bool display_failure)
+{
+    // check Auth is done.
+    if (!copter.authDone) {
+        check_failed(ARMING_CHECK_NONE, display_failure, "Check Auth");
+        return false;
+    }
+
+    return true;
+}
+
 
 bool AP_Arming_Copter::ins_checks(bool display_failure)
 {

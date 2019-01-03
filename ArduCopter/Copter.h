@@ -205,6 +205,7 @@ public:
 private:
 	// FC add: beacon params
 	BeaconParams beaconParams;
+	uint8_t authDone;
 
     static const AP_FWVersion fwver;
 

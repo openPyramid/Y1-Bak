@@ -631,6 +631,32 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
 {
     MAV_RESULT result = MAV_RESULT_FAILED;         // assume failure.  Each messages id is responsible for return ACK or NAK if required
 
+	if (MAVLINK_MSG_ID_CHANGE_OPERATOR_CONTROL == msg->msgid) {
+		mavlink_change_operator_control_t packet;
+
+		mavlink_msg_change_operator_control_decode(msg, &packet);
+				
+		if(!strcmp(packet.passkey, "GKXN-Y1")) {
+			copter.authDone = 1; // allowed arm throttle.
+		}
+
+		mavlink_msg_change_operator_control_ack_send(chan, 255, packet.control_request, !copter.authDone);
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "get a auth key : %s, auth is %d.\n\r", packet.passkey, copter.authDone);
+	}
+
+	///////////
+	// for test only, show remove later.
+	int16_t ch_spd = copter.channel_speed->get_control_in();
+	if(ch_spd>=750) {
+		copter.authDone = 1;
+	}
+	///////////
+
+	if(1 != copter.authDone) {
+		return;
+	}
+	
+
     switch (msg->msgid) {
 
     case MAVLINK_MSG_ID_HEARTBEAT:      // MAV ID: 0

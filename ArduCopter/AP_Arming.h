@@ -44,6 +44,7 @@ protected:
 
     // NOTE! the following check functions *DO NOT* call into AP_Arming!
     bool fence_checks(bool display_failure);
+	bool auth_checks(bool display_failure);
     bool parameter_checks(bool display_failure);
     bool motor_checks(bool display_failure);
     bool pilot_throttle_checks(bool display_failure);
