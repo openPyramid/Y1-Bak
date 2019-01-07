@@ -645,7 +645,7 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
 	}
 
 	///////////
-	// for test only, show remove later.
+	// for test only, should remove later.
 	int16_t ch_spd = copter.channel_speed->get_control_in();
 	if(ch_spd>=750) {
 		copter.authDone = 1;
@@ -655,7 +655,6 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
 	if(1 != copter.authDone) {
 		return;
 	}
-	
 
     switch (msg->msgid) {
 

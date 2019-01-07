@@ -117,7 +117,11 @@ void Copter::set_land_complete(bool b)
 
     if (ap.land_complete && motors->armed() && disarm_on_land_configured && mode_disarms_on_land) {
         init_disarm_motors();
+		// gcs().send_text(MAV_SEVERITY_CRITICAL, "Disarm in set_land_complete.\n\r");
     }
+	else {
+		// gcs().send_text(MAV_SEVERITY_CRITICAL, "lala a%d, b%d, c%d, d%d, e%d\n\r", ap.land_complete, motors->armed() , disarm_on_land_configured , flightmode->allows_arming(false) ,  !flightmode->has_manual_throttle());
+	}
 }
 
 // set land complete maybe flag

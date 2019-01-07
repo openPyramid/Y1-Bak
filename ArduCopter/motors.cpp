@@ -127,6 +127,7 @@ void Copter::auto_disarm_check()
     // disarm once timer expires
     if ((tnow_ms-auto_disarm_begin) >= disarm_delay_ms) {
         init_disarm_motors();
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "Disarm in auto_disarm_check.\n\r");
         auto_disarm_begin = tnow_ms;
     }
 }
