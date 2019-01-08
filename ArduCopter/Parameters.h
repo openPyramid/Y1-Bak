@@ -362,6 +362,10 @@ public:
 
         // 254,255: reserved
 
+		
+        k_param_fcsSerialNo = 451,
+        k_param_vechicleSerialNo = 452,
+
         // the k_param_* space is 9-bits in size
         // 511: reserved
     };
@@ -470,6 +474,9 @@ public:
     AP_Float                autotune_aggressiveness;
     AP_Float                autotune_min_d;
 #endif
+
+	AP_Int32 		fcsSerialNo;
+	AP_Int32 		vechicleSerialNo;
 
     // Note: keep initializers here in the same order as they are declared
     // above.

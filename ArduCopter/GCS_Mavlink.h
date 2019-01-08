@@ -9,6 +9,7 @@ class GCS_MAVLINK_Copter : public GCS_MAVLINK
 {
 
 public:
+	void send_autopilot_version() const;
 
 protected:
 

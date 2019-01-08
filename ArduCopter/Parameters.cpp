@@ -805,6 +805,11 @@ const AP_Param::Info Copter::var_info[] = {
     // @Path: Parameters.cpp
     GOBJECT(g2, "",  ParametersG2),
 
+	GSCALAR(fcsSerialNo, "fcsSerialNo", 666666),
+
+	GSCALAR(vechicleSerialNo, "vechicleSerialNo", 888888),
+
+
     AP_VAREND
 };
 
