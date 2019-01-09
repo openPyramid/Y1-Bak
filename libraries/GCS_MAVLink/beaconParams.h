@@ -22,6 +22,7 @@ public:
 	AP_Int32		seqOfNextWayPoint;	// the seq of hte next wayPoint when the break event happend.
 	AP_Int32 		fixYaw;
 	AP_Int8			breakDirection;  	// for AB break point only.
+	AP_Int8			breakPointType;		// 1: Auto; 4:AB.
 	AP_Int8 		sprayFlag;			// is spray when break point accur
 
 	AP_Int8			needCalcBearingFlag;
@@ -46,6 +47,7 @@ public:
 		breakPointLongitude = 0;
 		seqOfNextWayPoint = 0;
 		breakDirection = 0;
+		breakPointType = 0;
 		sprayFlag = 0;
 
 		needCalcBearingFlag = 0;

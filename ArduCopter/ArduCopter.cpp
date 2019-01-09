@@ -470,6 +470,7 @@ void Copter::getAutoBreakPoint(void)
 			}
 
 			copter.beaconParams.seqOfNextWayPoint = copter.mission.get_current_nav_index();
+			copter.beaconParams.breakPointType = 1;
 
 			gcs().send_message(MSG_BEACON_BREAKPOINT);
 		}
