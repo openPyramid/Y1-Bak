@@ -1,9 +1,22 @@
 #pragma once
 
 #include <AP_Math/AP_Math.h>
-#include "CompassCalibrator_Side236.h"
 
-#if HAL_COMPASS_CALIB_SIDE236 == 0
+#ifndef HAL_COMPASS_CALIB_SIDE236
+#define HAL_COMPASS_CALIB_SIDE236 0
+#endif
+
+//#define APPLY_PX4_FIT_ALGORITHM 1
+#ifndef APPLY_PX4_FIT_ALGORITHM
+#define APPLY_PX4_FIT_ALGORITHM 0
+#endif
+
+#if HAL_COMPASS_CALIB_SIDE236 == 1
+//calibration debug
+//#define COMPASS_CAL_DEBUG 1
+#ifndef COMPASS_CAL_DEBUG
+#define COMPASS_CAL_DEBUG 0
+#endif
 
 #define COMPASS_CAL_NUM_SPHERE_PARAMS 4
 #define COMPASS_CAL_NUM_ELLIPSOID_PARAMS 9
@@ -12,14 +25,24 @@
 //RMS tolerance
 #define COMPASS_CAL_DEFAULT_TOLERANCE 5.0f
 
+//side sample constant
+#define COMPASS_CAL_INTERVAL_PERSIDE_MS       10000              //the time in ms we allow sample perside
+#define COMPASS_CAL_ORIENTATION_SIDE_COUNT 6
+#define COMPASS_CAL_NUM_SAMPLES_PERSIDE (COMPASS_CAL_NUM_SAMPLES/COMPASS_CAL_ORIENTATION_SIDE_COUNT)
+#define COMPASS_CAL_INTERVAL_SAMPLE_MS     ( (COMPASS_CAL_INTERVAL_PERSIDE_MS/COMPASS_CAL_NUM_SAMPLES_PERSIDE)>>8)
+
 enum compass_cal_status_t {
     COMPASS_CAL_NOT_STARTED=0,
     COMPASS_CAL_WAITING_TO_START=1,
     COMPASS_CAL_RUNNING_STEP_ONE=2,
     COMPASS_CAL_RUNNING_STEP_TWO=3,
-    COMPASS_CAL_SUCCESS=4,
-    COMPASS_CAL_FAILED=5,
-    COMPASS_CAL_BAD_ORIENTATION=6,
+    COMPASS_CAL_RUNNING_STEP_THR=4,
+    COMPASS_CAL_RUNNING_STEP_FOUR=5,
+    COMPASS_CAL_RUNNING_STEP_FIVE=6,
+    COMPASS_CAL_RUNNING_STEP_SIX=7,
+    COMPASS_CAL_SUCCESS=8,
+    COMPASS_CAL_FAILED=9,
+    COMPASS_CAL_BAD_ORIENTATION=10,
 };
 
 class CompassCalibrator {
@@ -28,11 +51,17 @@ public:
 
     CompassCalibrator();
 
-    void start(bool retry, float delay, uint16_t offset_max, uint8_t compass_idx);
+    void start(bool retry, float delay, uint16_t offset_max, uint8_t compass_idx, uint8_t side_cnt);
+
     void clear();
 
-    void update(bool &failure);
-    void new_sample(const Vector3f &sample);
+    void update(bool &failure, bool enable_next);
+    void new_sample(const Vector3f& sample);
+#if COMPASS_CAL_DEBUG
+    void new_sample(const Vector3f& sample, Vector3f& rawfield);
+#endif
+    void set_sample_enable(bool enable);
+    bool get_sample_enabled() const ;
 
     bool check_for_timeout();
 
@@ -58,6 +87,7 @@ public:
     float get_fitness() const { return sqrtf(_fitness); }
     float get_orientation_confidence() const { return _orientation_confidence; }
     uint8_t get_attempt() const { return _attempt; }
+    bool get_side_completion(compass_cal_status_t side_status) const;
 
 private:
     class param_t {
@@ -132,6 +162,14 @@ private:
     uint16_t _samples_thinned;
     float _orientation_confidence;
 
+    //side236
+    bool _samples_enabled;
+    uint16_t _total_samples_num;                                          //total num of the samples depended on side_cnt
+    uint16_t _samples_perside;                                               //counter for each side sampling
+    bool _side_completed;                                                       // side step finish flag true means one side completed will be reset when start one side sample progress
+    uint8_t _sample_side_cnt;                                                   //how many sides we should sample according to _sample_side_mask
+    float _mag_sphere_radius;
+    
     bool set_status(compass_cal_status_t status);
 
     // returns true if sample should be added to buffer
@@ -145,6 +183,7 @@ private:
     void initialize_fit();
 
     bool fitting() const;
+    bool sampling() const;
 
     // thins out samples between step one and step two
     void thin_samples();
@@ -174,5 +213,20 @@ private:
 
     Vector3f calculate_earth_field(CompassSample &sample, enum Rotation r);
     bool calculate_orientation();
+
+#if APPLY_PX4_FIT_ALGORITHM
+
+    bool run_lm_sphere_fit(float &_fitness, float &_sphere_lambda);
+    bool run_lm_ellipsoid_fit(float &_fitness, float &_sphere_lambda);
+
+    // Returns calibrate_return_error if any parameter is not finite
+    // Logs if parameters are out of range
+    bool  check_calibration_result(float offset_x, float offset_y, float offset_z,
+        float sphere_radius,
+        float diag_x, float diag_y, float diag_z,
+        float offdiag_x, float offdiag_y, float offdiag_z);
+
+#endif
+
 };
 #endif

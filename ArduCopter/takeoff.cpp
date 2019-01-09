@@ -60,7 +60,7 @@ void Copter::Mode::_TakeOff::start(float alt_cm)
 
     // initialise takeoff state
     _running = true;
-    max_speed = speed;
+    max_speed = speed / 1.5f;
     start_ms = millis();
     alt_delta = alt_cm;
 }

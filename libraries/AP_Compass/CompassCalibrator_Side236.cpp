@@ -57,13 +57,13 @@
  * http://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm
  */
 
-#include "CompassCalibrator.h"
+#include "CompassCalibrator_Side236.h"
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_GeodesicGrid.h>
 #include <AP_AHRS/AP_AHRS.h>
 #include <GCS_MAVLink/GCS.h>
 
-#if HAL_COMPASS_CALIB_SIDE236 == 0
+#if HAL_COMPASS_CALIB_SIDE236 == 1
 
 extern const AP_HAL::HAL& hal;
 
@@ -82,19 +82,39 @@ void CompassCalibrator::clear() {
     set_status(COMPASS_CAL_NOT_STARTED);
 }
 
-void CompassCalibrator::start(bool retry, float delay, uint16_t offset_max, uint8_t compass_idx)
+void CompassCalibrator::start(bool retry, float delay, uint16_t offset_max, uint8_t compass_idx, uint8_t side_cnt)
 {
     if(running()) {
         return;
     }
     _offset_max = offset_max;
-    _attempt = 1;
+    _attempt = 0;                                           //we don't retry at internal loop once caliberation failed
     _retry = retry;
     _delay_start_sec = delay;
     _start_time_ms = AP_HAL::millis();
     _compass_idx = compass_idx;
+
+    _sample_side_cnt = side_cnt;
+
+    if(_sample_side_cnt < 2) return ;
+    else if(_sample_side_cnt>COMPASS_CAL_ORIENTATION_SIDE_COUNT){
+        _sample_side_cnt  = COMPASS_CAL_ORIENTATION_SIDE_COUNT;
+    }
+    _total_samples_num =  COMPASS_CAL_NUM_SAMPLES/COMPASS_CAL_ORIENTATION_SIDE_COUNT * _sample_side_cnt;
     set_status(COMPASS_CAL_WAITING_TO_START);
 }
+
+void CompassCalibrator::set_sample_enable(bool enable){
+    if (!running()) {
+        return;
+    }
+    _samples_enabled = enable;
+}
+
+bool CompassCalibrator::get_sample_enabled() const {
+    return _samples_enabled;
+}
+
 
 void CompassCalibrator::get_calibration(Vector3f &offsets, Vector3f &diagonals, Vector3f &offdiagonals) {
     if (_status != COMPASS_CAL_SUCCESS) {
@@ -109,14 +129,24 @@ void CompassCalibrator::get_calibration(Vector3f &offsets, Vector3f &diagonals, 
 float CompassCalibrator::get_completion_percent() const {
     // first sampling step is 1/3rd of the progress bar
     // never return more than 99% unless _status is COMPASS_CAL_SUCCESS
+
     switch(_status) {
         case COMPASS_CAL_NOT_STARTED:
         case COMPASS_CAL_WAITING_TO_START:
             return 0.0f;
         case COMPASS_CAL_RUNNING_STEP_ONE:
-            return 33.3f * _samples_collected/COMPASS_CAL_NUM_SAMPLES;
         case COMPASS_CAL_RUNNING_STEP_TWO:
-            return 33.3f + 65.7f*((float)(_samples_collected-_samples_thinned)/(COMPASS_CAL_NUM_SAMPLES-_samples_thinned));
+        case COMPASS_CAL_RUNNING_STEP_THR:
+        case COMPASS_CAL_RUNNING_STEP_FOUR:
+        case COMPASS_CAL_RUNNING_STEP_FIVE:
+        case COMPASS_CAL_RUNNING_STEP_SIX:{
+            //calculate percentage multiply 100.0f to make to value from 0 to 100 in float form
+            float pct = (_samples_collected*100.0f/_total_samples_num);
+            //if one step sample has completed but fit have been finish, we sub 1percent to indicate gcs not to show next step guide
+//            if(pct>99.0f &&  !_side_completed) pct = pct -1.0f;
+            if(pct>100.0f) pct = 100.0f;
+            return pct;
+        }
         case COMPASS_CAL_SUCCESS:
             return 100.0f;
         case COMPASS_CAL_FAILED:
@@ -124,6 +154,10 @@ float CompassCalibrator::get_completion_percent() const {
         default:
             return 0.0f;
     };
+}
+
+bool CompassCalibrator::get_side_completion(compass_cal_status_t side_status) const {
+    return side_status==_status && _side_completed;
 }
 
 void CompassCalibrator::update_completion_mask(const Vector3f& v)
@@ -167,53 +201,134 @@ bool CompassCalibrator::check_for_timeout() {
 void CompassCalibrator::new_sample(const Vector3f& sample) {
     _last_sample_ms = AP_HAL::millis();
 
-    if(_status == COMPASS_CAL_WAITING_TO_START) {
-        set_status(COMPASS_CAL_RUNNING_STEP_ONE);
-    }
-
-    if(running() && _samples_collected < COMPASS_CAL_NUM_SAMPLES && accept_sample(sample)) {
+    if(running() &&
+        _samples_perside < COMPASS_CAL_NUM_SAMPLES_PERSIDE &&
+        _samples_collected < _total_samples_num &&
+        _samples_enabled &&
+        accept_sample(sample)) {
         update_completion_mask(sample);
         _sample_buffer[_samples_collected].set(sample);
         _sample_buffer[_samples_collected].att.set_from_ahrs();
         _samples_collected++;
+        _samples_perside++;
     }
 }
+#if COMPASS_CAL_DEBUG
+void CompassCalibrator::new_sample(const Vector3f& sample, Vector3f& rawfield) {
+    _last_sample_ms = AP_HAL::millis();
 
-void CompassCalibrator::update(bool &failure) {
+    if(running() &&
+        _samples_perside < COMPASS_CAL_NUM_SAMPLES_PERSIDE &&
+        _samples_collected < _total_samples_num &&
+        _samples_enabled &&
+        accept_sample(sample)) {
+        update_completion_mask(sample);
+        _sample_buffer[_samples_collected].set(sample);
+        _sample_buffer[_samples_collected].att.set_from_ahrs();
+        _samples_collected++;
+        _samples_perside++;
+        rawfield = sample;
+    }
+}
+#endif
+
+void CompassCalibrator::update(bool &failure, bool enable_next) {
     failure = false;
 
-    if(!fitting()) {
+    if(sampling()) {
         return;
     }
 
-    if(_status == COMPASS_CAL_RUNNING_STEP_ONE) {
-        if (_fit_step >= 10) {
-            if(is_equal(_fitness,_initial_fitness) || isnan(_fitness)) {           //if true, means that fitness is diverging instead of converging
-                set_status(COMPASS_CAL_FAILED);
-                failure = true;
-            }
+    //if we are here, means we have completed sampling
+    if(_status == COMPASS_CAL_WAITING_TO_START){
+        if(enable_next) set_status(COMPASS_CAL_RUNNING_STEP_ONE);
+
+    }else if(_status == COMPASS_CAL_RUNNING_STEP_ONE) {
+//        if (_fit_step >= 10) {
+//            if(is_equal(_fitness,_initial_fitness) || isnan(_fitness)) {           //if true, means that fitness is diverging instead of converging
+//                set_status(COMPASS_CAL_FAILED);
+//                failure = true;
+//            }
+//            _side_completed = true;
+//            if(enable_next){
+//                set_status(COMPASS_CAL_RUNNING_STEP_TWO);
+//            }else{
+//                return ;
+//            }
+//        } else {
+//            if (_fit_step == 0) {
+//                calc_initial_offset();
+//            }
+//            run_sphere_fit();
+//            _fit_step++;
+//        }
+        _side_completed = true;
+        if(enable_next){
             set_status(COMPASS_CAL_RUNNING_STEP_TWO);
-        } else {
-            if (_fit_step == 0) {
-                calc_initial_offset();
-            }
-            run_sphere_fit();
-            _fit_step++;
         }
-    } else if(_status == COMPASS_CAL_RUNNING_STEP_TWO) {
-        if (_fit_step >= 35) {
+    }else if((_status == COMPASS_CAL_RUNNING_STEP_TWO && _sample_side_cnt==2) ||
+    (_status == COMPASS_CAL_RUNNING_STEP_THR && _sample_side_cnt==3) ||
+    (_status == COMPASS_CAL_RUNNING_STEP_SIX && _sample_side_cnt==6)) {
+#if APPLY_PX4_FIT_ALGORITHM ==0
+        if (_fit_step >= 200) {
+            _side_completed = true;
             if(fit_acceptable() && calculate_orientation()) {
                 set_status(COMPASS_CAL_SUCCESS);
             } else {
                 set_status(COMPASS_CAL_FAILED);
                 failure = true;
             }
-        } else if (_fit_step < 15) {
+        } else if (_fit_step < 100) {
+            if(_fit_step==0) calc_initial_offset();
+            
             run_sphere_fit();
             _fit_step++;
         } else {
+            if(_fit_step==100){
+                _fitness = 1.0e30f;
+                if(is_equal(_fitness,_initial_fitness) || isnan(_fitness)) {           //if true, means that fitness is diverging instead of converging
+                    set_status(COMPASS_CAL_FAILED);
+                    failure = true;
+                }
+            }
             run_ellipsoid_fit();
             _fit_step++;
+        }
+
+#else
+        if (_fit_step >= 200) {
+            bool result = check_calibration_result(_params.offset.x, _params.offset.y, _params.offset.z,
+                                                        _params.radius, _params.diag.x, _params.diag.y, _params.diag.z,
+                                                        _params.offdiag.x, _params.offdiag.y, _params.offdiag.z);
+
+            _side_completed = true;
+            if(result){// && calculate_orientation()) {
+                printf("Magcalib: update calib OK.");
+                set_status(COMPASS_CAL_SUCCESS);
+            } else {
+                set_status(COMPASS_CAL_FAILED);
+                printf("Magcalib: update calib ERR.");
+                failure = true;
+            }
+        }else if(_fit_step<100){
+            if(_sample_buffer == nullptr) return;
+            
+            run_lm_sphere_fit(_fitness, _sphere_lambda);
+            _fit_step++;
+        }else{
+            if(_sample_buffer == nullptr) return;
+            //need to reset _fitness in PX4 
+            if(_fit_step==100) _fitness = 1.0e30f;
+
+            run_lm_ellipsoid_fit(_fitness, _ellipsoid_lambda);
+            _fit_step++;
+        }
+#endif
+
+    }else if(running()){
+        _side_completed = true;
+        if(enable_next){
+            set_status((compass_cal_status_t)(_status+1));
         }
     }
 }
@@ -222,20 +337,36 @@ void CompassCalibrator::update(bool &failure) {
 ////////////////////// PRIVATE METHODS //////////////////////
 /////////////////////////////////////////////////////////////
 bool CompassCalibrator::running() const {
-    return _status == COMPASS_CAL_RUNNING_STEP_ONE || _status == COMPASS_CAL_RUNNING_STEP_TWO;
+    return _status == COMPASS_CAL_RUNNING_STEP_ONE || 
+                _status == COMPASS_CAL_RUNNING_STEP_TWO || 
+                _status == COMPASS_CAL_RUNNING_STEP_THR ||
+                _status == COMPASS_CAL_RUNNING_STEP_FOUR ||
+                _status == COMPASS_CAL_RUNNING_STEP_FIVE ||
+                _status == COMPASS_CAL_RUNNING_STEP_SIX;
 }
 
+//not used in side236
 bool CompassCalibrator::fitting() const {
-    return running() && _samples_collected == COMPASS_CAL_NUM_SAMPLES;
+    return running() && _samples_collected == _total_samples_num;
+}
+
+bool CompassCalibrator::sampling() const {
+    return running() &&
+                _samples_perside < COMPASS_CAL_NUM_SAMPLES_PERSIDE &&
+                _samples_collected < _total_samples_num;
 }
 
 void CompassCalibrator::initialize_fit() {
     //initialize _fitness before starting a fit
+#if APPLY_PX4_FIT_ALGORITHM ==0
     if (_samples_collected != 0) {
         _fitness = calc_mean_squared_residuals(_params);
     } else {
         _fitness = 1.0e30f;
     }
+#else
+     _fitness = 1.0e30f;
+#endif
     _ellipsoid_lambda = 1.0f;
     _sphere_lambda = 1.0f;
     _initial_fitness = _fitness;
@@ -245,7 +376,11 @@ void CompassCalibrator::initialize_fit() {
 void CompassCalibrator::reset_state() {
     _samples_collected = 0;
     _samples_thinned = 0;
-    _params.radius = 200;
+    _samples_perside = 0;
+    _samples_enabled = false;
+    _side_completed = false;              //mark non side complete
+    _mag_sphere_radius = 300.0f;
+    _params.radius = 300;       //200;
     _params.offset.zero();
     _params.diag = Vector3f(1.0f,1.0f,1.0f);
     _params.offdiag.zero();
@@ -274,7 +409,7 @@ bool CompassCalibrator::set_status(compass_cal_status_t status) {
             reset_state();
             _status = COMPASS_CAL_WAITING_TO_START;
 
-            set_status(COMPASS_CAL_RUNNING_STEP_ONE);
+//            set_status(COMPASS_CAL_RUNNING_STEP_ONE);
             return true;
 
         case COMPASS_CAL_RUNNING_STEP_ONE:
@@ -288,12 +423,16 @@ bool CompassCalibrator::set_status(compass_cal_status_t status) {
 
             if (_sample_buffer == nullptr) {
                 _sample_buffer =
-                    (CompassSample*) calloc(COMPASS_CAL_NUM_SAMPLES, sizeof(CompassSample));
+                    (CompassSample*) calloc(_total_samples_num, sizeof(CompassSample));
             }
 
             if(_sample_buffer != nullptr) {
                 initialize_fit();
                 _status = COMPASS_CAL_RUNNING_STEP_ONE;
+                //reset counter after get in a running status 
+                _samples_perside = 0;
+                _side_completed = false;
+                _samples_enabled = false;
                 return true;
             }
 
@@ -303,24 +442,80 @@ bool CompassCalibrator::set_status(compass_cal_status_t status) {
             if(_status != COMPASS_CAL_RUNNING_STEP_ONE) {
                 return false;
             }
-            thin_samples();
+//            thin_samples();
             initialize_fit();
             _status = COMPASS_CAL_RUNNING_STEP_TWO;
+            //reset counter after get in a running status 
+            _samples_perside = 0;
+            _side_completed = false;
+            _samples_enabled = false;
             return true;
 
-        case COMPASS_CAL_SUCCESS:
+        case COMPASS_CAL_RUNNING_STEP_THR:
             if(_status != COMPASS_CAL_RUNNING_STEP_TWO) {
                 return false;
             }
-
-            if(_sample_buffer != nullptr) {
-                free(_sample_buffer);
-                _sample_buffer = nullptr;
-            }
-
-            _status = COMPASS_CAL_SUCCESS;
+            _status = COMPASS_CAL_RUNNING_STEP_THR;
+            //reset counter after get in a running status 
+            _samples_perside = 0;
+            _side_completed = false;
+            _samples_enabled = false;
             return true;
 
+        case COMPASS_CAL_RUNNING_STEP_FOUR:
+            if(_status != COMPASS_CAL_RUNNING_STEP_THR) {
+                return false;
+            }
+            _status = COMPASS_CAL_RUNNING_STEP_FOUR;
+            //reset counter after get in a running status 
+            _samples_perside = 0;
+            _side_completed = false;
+            _samples_enabled = false;
+            return true;
+
+        case COMPASS_CAL_RUNNING_STEP_FIVE:
+            if(_status != COMPASS_CAL_RUNNING_STEP_FOUR) {
+                return false;
+            }
+            _status = COMPASS_CAL_RUNNING_STEP_FIVE;
+            //reset counter after get in a running status 
+            _samples_perside = 0;
+            _side_completed = false;
+            _samples_enabled = false;
+            return true;
+
+            case COMPASS_CAL_RUNNING_STEP_SIX:
+                if(_status != COMPASS_CAL_RUNNING_STEP_FIVE) {
+                    return false;
+                }
+                _status = COMPASS_CAL_RUNNING_STEP_SIX;
+                //reset counter after get in a running status 
+                _samples_perside = 0;
+                _side_completed = false;
+                _samples_enabled = false;
+                return true;
+
+        case COMPASS_CAL_SUCCESS:
+            if((_status == COMPASS_CAL_RUNNING_STEP_TWO && _sample_side_cnt==2)||
+                (_status == COMPASS_CAL_RUNNING_STEP_THR && _sample_side_cnt==3)||
+                (_status == COMPASS_CAL_RUNNING_STEP_SIX && _sample_side_cnt==6)) {
+
+                if(_sample_buffer != nullptr) {
+                    free(_sample_buffer);
+                    _sample_buffer = nullptr;
+                }
+
+                _status = COMPASS_CAL_SUCCESS;
+                
+                //reset counter after get in a running status 
+                _samples_perside = 0;
+                _samples_enabled = false;
+
+                return true;
+            }else{
+                return false;
+            }
+            
         case COMPASS_CAL_FAILED:
             if (_status == COMPASS_CAL_BAD_ORIENTATION) {
                 // don't overwrite bad orientation status
@@ -333,10 +528,10 @@ bool CompassCalibrator::set_status(compass_cal_status_t status) {
                 return false;
             }
 
-            if(_retry && set_status(COMPASS_CAL_WAITING_TO_START)) {
-                _attempt++;
-                return true;
-            }
+//            if(_retry && set_status(COMPASS_CAL_WAITING_TO_START)) {
+//                _attempt++;
+//                return true;
+//            }
 
             if(_sample_buffer != nullptr) {
                 free(_sample_buffer);
@@ -395,37 +590,31 @@ void CompassCalibrator::thin_samples() {
     update_completion_mask();
 }
 
-/*
- * The sample acceptance distance is determined as follows:
- * For any regular polyhedron with triangular faces, the angle theta subtended
- * by two closest points is defined as
- *
- *      theta = arccos(cos(A)/(1-cos(A)))
- *
- * Where:
- *      A = (4pi/F + pi)/3
- * and
- *      F = 2V - 4 is the number of faces for the polyhedron in consideration,
- *      which depends on the number of vertices V
- *
- * The above equation was proved after solving for spherical triangular excess
- * and related equations.
- */
+//new accept_sample for side236
 bool CompassCalibrator::accept_sample(const Vector3f& sample)
 {
-    static const uint16_t faces = (2 * COMPASS_CAL_NUM_SAMPLES - 4);
-    static const float a = (4.0f * M_PI / (3.0f * faces)) + M_PI / 3.0f;
-    static const float theta = 0.5f * acosf(cosf(a) / (1.0f - cosf(a)));
-
     if(_sample_buffer == nullptr) {
         return false;
     }
-
-    float min_distance = _params.radius * 2*sinf(theta/2);
-
-    for (uint16_t i = 0; i<_samples_collected; i++){
-        float distance = (sample - _sample_buffer[i].get()).length();
-        if(distance < min_distance) {
+    //we update radius every 2 samples at step1
+    if(_samples_collected>0 && _samples_collected < COMPASS_CAL_NUM_SAMPLES_PERSIDE && !(_samples_collected%2)){
+        _params.radius = sample.length();
+    }
+    //min_sample_dist is just an appropriate value for disperse the sample in on circumference 
+    float min_sample_dist = fabs(5.4f* _params.radius/ sqrtf((float)COMPASS_CAL_NUM_SAMPLES_PERSIDE)) / 7.0f;
+//    float min_sample_dist =  2 * M_PI * _params.radius/42.0f;
+    //we consider last 5 samples calculating the distance
+    float distance=0.0f;
+    uint16_t i;
+    if(_samples_collected<5){
+        i = 0;
+    }else{
+        i = _samples_collected -5;
+    }
+    
+    for (; i<_samples_collected; i++){
+        distance = (sample - _sample_buffer[i].get()).length();
+        if(distance < min_sample_dist) {
             return false;
         }
     }
@@ -692,6 +881,353 @@ void CompassCalibrator::run_ellipsoid_fit()
     }
 }
 
+/////////////////////////////////////////////////////////
+//////////PX4 ellipsoid fit algorithm //////////////////////////
+/////////////////////////////////////////////////////////
+/**
+ * Least-squares fit of a sphere to a set of points.
+ *
+ * Fits a sphere to a set of points on the sphere surface.
+ *
+ * @param x point coordinates on the X axis
+ * @param y point coordinates on the Y axis
+ * @param z point coordinates on the Z axis
+ * @param size number of points
+ * @param max_iterations abort if maximum number of iterations have been reached. If unsure, set to 100.
+ * @param delta abort if error is below delta. If unsure, set to 0 to run max_iterations times.
+ * @param sphere_x coordinate of the sphere center on the X axis
+ * @param sphere_y coordinate of the sphere center on the Y axis
+ * @param sphere_z coordinate of the sphere center on the Z axis
+ * @param sphere_radius sphere radius
+ *
+ * @return 0 on success, 1 on failure
+ */
+
+#if APPLY_PX4_FIT_ALGORITHM
+//@param sphere_fit 1:sphere_fit 0:ellipsoid_fit
+
+//void CompassCalibrator::ellipsoid_fit_least_squares(param_t& params, bool sphere_fit)
+//{
+//	float _fitness = 1.0e30f, _sphere_lambda = 1.0f, _ellipsoid_lambda = 1.0f;
+//
+//	if(sphere_fit){
+//		run_lm_sphere_fit(_fitness, _sphere_lambda);
+//	}else{
+//		run_lm_ellipsoid_fit(_fitness, _ellipsoid_lambda);
+//	}
+//    return ;
+//}
+
+bool CompassCalibrator::run_lm_sphere_fit(float &_fitness, float &_sphere_lambda)
+{
+	//Run Sphere Fit using Levenberg Marquardt LSq Fit
+	const float lma_damping = 10.0f;
+	float fitness = _fitness;
+	float fit1 = 0.0f, fit2 = 0.0f;
+
+	float JTJ[16];
+	float JTJ2[16];
+	float JTFI[4];
+	float residual = 0.0f;
+	memset(JTJ, 0, sizeof(JTJ));
+	memset(JTJ2, 0, sizeof(JTJ2));
+	memset(JTFI, 0, sizeof(JTFI));
+
+	// Gauss Newton Part common for all kind of extensions including LM
+	for (uint16_t k = 0; k < _samples_collected; k++) {
+                  Vector3f sample = _sample_buffer[k].get();
+		float sphere_jacob[4];
+		//Calculate Jacobian
+		float A = (_params.diag.x  * (sample.x - _params.offset.x)) + (_params.offdiag.x * (sample.y - _params.offset.y)) + (_params.offdiag.y * (sample.z - _params.offset.z));
+		float B = (_params.offdiag.x * (sample.x - _params.offset.x)) + (_params.diag.y  * (sample.y - _params.offset.y)) + (_params.offdiag.z * (sample.z - _params.offset.z));
+		float C = (_params.offdiag.y * (sample.x - _params.offset.x)) + (_params.offdiag.z * (sample.y - _params.offset.y)) + (_params.diag.z  * (sample.z - _params.offset.z));
+		float length = sqrtf(A * A + B * B + C * C);
+
+		// 0: partial derivative (radius wrt fitness fn) fn operated on sample
+		sphere_jacob[0] = 1.0f;
+		// 1-3: partial derivative (offsets wrt fitness fn) fn operated on sample
+		sphere_jacob[1] = 1.0f * (((_params.diag.x    * A) + (_params.offdiag.x * B) + (_params.offdiag.y * C)) / length);
+		sphere_jacob[2] = 1.0f * (((_params.offdiag.x * A) + (_params.diag.y    * B) + (_params.offdiag.z * C)) / length);
+		sphere_jacob[3] = 1.0f * (((_params.offdiag.y * A) + (_params.offdiag.z * B) + (_params.diag.z    * C)) / length);
+		residual = _params.radius - length;
+
+		for (uint8_t i = 0; i < 4; i++) {
+			// compute JTJ
+			for (uint8_t j = 0; j < 4; j++) {
+				JTJ[i * 4 + j] += sphere_jacob[i] * sphere_jacob[j];
+				JTJ2[i * 4 + j] += sphere_jacob[i] * sphere_jacob[j]; //a backup JTJ for LM
+			}
+
+			JTFI[i] += sphere_jacob[i] * residual;
+		}
+	}
+
+
+	//------------------------Levenberg-Marquardt-part-starts-here---------------------------------//
+	//refer: http://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm#Choice_of_damping_parameter
+	float fit1_params[4] = {_params.radius, _params.offset.x, _params.offset.y, _params.offset.z};
+	float fit2_params[4];
+	memcpy(fit2_params, fit1_params, sizeof(fit1_params));
+
+	for (uint8_t i = 0; i < 4; i++) {
+		JTJ[i * 4 + i] += _sphere_lambda;
+		JTJ2[i * 4 + i] += _sphere_lambda / lma_damping;
+	}
+
+	if (!inverse4x4(JTJ, JTJ)) {
+		return false;
+	}
+
+	if (!inverse4x4(JTJ2, JTJ2)) {
+		return false;
+	}
+
+	for (uint8_t row = 0; row < 4; row++) {
+		for (uint8_t col = 0; col < 4; col++) {
+			fit1_params[row] -= JTFI[col] * JTJ[row * 4 + col];
+			fit2_params[row] -= JTFI[col] * JTJ2[row * 4 + col];
+		}
+	}
+
+	//Calculate mean squared residuals
+	for (uint16_t k = 0; k < _samples_collected; k++) {
+                 Vector3f sample = _sample_buffer[k].get();
+		float A = (_params.diag.x    * (sample.x - fit1_params[1])) + (_params.offdiag.x * (sample.y - fit1_params[2])) + (_params.offdiag.y *
+				(sample.z + fit1_params[3]));
+		float B = (_params.offdiag.x * (sample.x - fit1_params[1])) + (_params.diag.y    * (sample.y - fit1_params[2])) + (_params.offdiag.z *
+				(sample.z + fit1_params[3]));
+		float C = (_params.offdiag.y * (sample.x - fit1_params[1])) + (_params.offdiag.z * (sample.y - fit1_params[2])) + (_params.diag.z    *
+				(sample.z - fit1_params[3]));
+		float length = sqrtf(A * A + B * B + C * C);
+		residual = fit1_params[0] - length;
+		fit1 += residual * residual;
+
+		A = (_params.diag.x    * (sample.x - fit2_params[1])) + (_params.offdiag.x * (sample.y - fit2_params[2])) + (_params.offdiag.y *
+				(sample.z - fit2_params[3]));
+		B = (_params.offdiag.x * (sample.x - fit2_params[1])) + (_params.diag.y    * (sample.y - fit2_params[2])) + (_params.offdiag.z *
+				(sample.z - fit2_params[3]));
+		C = (_params.offdiag.y * (sample.x - fit2_params[1])) + (_params.offdiag.z * (sample.y - fit2_params[2])) + (_params.diag.z    *
+				(sample.z - fit2_params[3]));
+		length = sqrtf(A * A + B * B + C * C);
+		residual = fit2_params[0] - length;
+		fit2 += residual * residual;
+	}
+
+	fit1 = sqrtf(fit1) / _samples_collected;
+	fit2 = sqrtf(fit2) / _samples_collected;
+
+	if (fit1 > _fitness && fit2 > _fitness) {
+		_sphere_lambda *= lma_damping;
+
+	} else if (fit2 < _fitness && fit2 < fit1) {
+		_sphere_lambda /= lma_damping;
+		memcpy(fit1_params, fit2_params, sizeof(fit1_params));
+		fitness = fit2;
+
+	} else if (fit1 < _fitness) {
+		fitness = fit1;
+	}
+
+	//--------------------Levenberg-Marquardt-part-ends-here--------------------------------//
+
+	if (isfinite(fitness) && fitness < _fitness) {
+		_fitness = fitness;
+		_params.radius = fit1_params[0];
+		_params.offset.x = fit1_params[1];
+		_params.offset.y = fit1_params[2];
+		_params.offset.z = fit1_params[3];
+		return true;
+
+	} else {
+		return false;
+	}
+}
+
+bool CompassCalibrator::run_lm_ellipsoid_fit(float &_fitness, float &_sphere_lambda)
+{
+	//Run Sphere Fit using Levenberg Marquardt LSq Fit
+	const float lma_damping = 10.0f;
+	float fitness = _fitness;
+	float fit1 = 0.0f, fit2 = 0.0f;
+
+	float JTJ[81];
+	float JTJ2[81];
+	float JTFI[9];
+	float residual = 0.0f;
+	memset(JTJ, 0, sizeof(JTJ));
+	memset(JTJ2, 0, sizeof(JTJ2));
+	memset(JTFI, 0, sizeof(JTFI));
+	float ellipsoid_jacob[9];
+
+	// Gauss Newton Part common for all kind of extensions including LM
+	for (uint16_t k = 0; k < _samples_collected; k++) {
+                 Vector3f sample = _sample_buffer[k].get();
+		//Calculate Jacobian
+		float A = (_params.diag.x    * (sample.x - _params.offset.x)) + (_params.offdiag.x * (sample.y - _params.offset.y)) + (_params.offdiag.y * (sample.z - _params.offset.z));
+		float B = (_params.offdiag.x * (sample.x - _params.offset.x)) + (_params.diag.y    * (sample.y - _params.offset.y)) + (_params.offdiag.z * (sample.z - _params.offset.z));
+		float C = (_params.offdiag.y * (sample.x - _params.offset.x)) + (_params.offdiag.z * (sample.y - _params.offset.y)) + (_params.diag.z    * (sample.z - _params.offset.z));
+		float length = safe_sqrt(A * A + B * B + C * C);
+		residual = _params.radius - length;
+		fit1 += residual * residual;
+		// 0-2: partial derivative (offset wrt fitness fn) fn operated on sample
+		ellipsoid_jacob[0] = 1.0f * (((_params.diag.x    * A) + (_params.offdiag.x * B) + (_params.offdiag.y * C)) / length);
+		ellipsoid_jacob[1] = 1.0f * (((_params.offdiag.x * A) + (_params.diag.y    * B) + (_params.offdiag.z * C)) / length);
+		ellipsoid_jacob[2] = 1.0f * (((_params.offdiag.y * A) + (_params.offdiag.z * B) + (_params.diag.z    * C)) / length);
+		// 3-5: partial derivative (diag offset wrt fitness fn) fn operated on sample
+		ellipsoid_jacob[3] = -1.0f * ((sample.x + _params.offset.x) * A) / length;
+		ellipsoid_jacob[4] = -1.0f * ((sample.y + _params.offset.y) * B) / length;
+		ellipsoid_jacob[5] = -1.0f * ((sample.z + _params.offset.z) * C) / length;
+		// 6-8: partial derivative (off-diag offset wrt fitness fn) fn operated on sample
+		ellipsoid_jacob[6] = -1.0f * (((sample.y + _params.offset.y) * A) + ((sample.x + _params.offset.x) * B)) / length;
+		ellipsoid_jacob[7] = -1.0f * (((sample.z + _params.offset.z) * A) + ((sample.x + _params.offset.x) * C)) / length;
+		ellipsoid_jacob[8] = -1.0f * (((sample.z + _params.offset.z) * B) + ((sample.y + _params.offset.y) * C)) / length;
+
+		for (uint8_t i = 0; i < 9; i++) {
+			// compute JTJ
+			for (uint8_t j = 0; j < 9; j++) {
+				JTJ[i * 9 + j] += ellipsoid_jacob[i] * ellipsoid_jacob[j];
+				JTJ2[i * 9 + j] += ellipsoid_jacob[i] * ellipsoid_jacob[j]; //a backup JTJ for LM
+			}
+
+			JTFI[i] += ellipsoid_jacob[i] * residual;
+		}
+	}
+
+
+	//------------------------Levenberg-Marquardt-part-starts-here---------------------------------//
+	//refer: http://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm#Choice_of_damping_parameter
+	float fit1_params[9] = {_params.offset.x, _params.offset.y, _params.offset.z, _params.diag.x, _params.diag.y, _params.diag.z, _params.offdiag.x, _params.offdiag.y, _params.offdiag.z};
+	float fit2_params[9];
+	memcpy(fit2_params, fit1_params, sizeof(fit1_params));
+
+	for (uint8_t i = 0; i < 9; i++) {
+		JTJ[i * 9 + i] += _sphere_lambda;
+		JTJ2[i * 9 + i] += _sphere_lambda / lma_damping;
+	}
+
+
+	if (!inverse(JTJ, JTJ, 9)) {
+		return false;
+	}
+
+	if (!inverse(JTJ2, JTJ2, 9)) {
+		return false;
+	}
+
+
+
+	for (uint8_t row = 0; row < 9; row++) {
+		for (uint8_t col = 0; col < 9; col++) {
+			fit1_params[row] -= JTFI[col] * JTJ[row * 9 + col];
+			fit2_params[row] -= JTFI[col] * JTJ2[row * 9 + col];
+		}
+	}
+
+	//Calculate mean squared residuals
+	for (uint16_t k = 0; k < _samples_collected; k++) {
+         Vector3f sample = _sample_buffer[k].get();
+		float A = (fit1_params[3]    * (sample.x - fit1_params[0])) + (fit1_params[6] * (sample.y - fit1_params[1])) + (fit1_params[7] *
+				(sample.z - fit1_params[2]));
+		float B = (fit1_params[6] * (sample.x - fit1_params[0])) + (fit1_params[4]   * (sample.y - fit1_params[1])) + (fit1_params[8] *
+				(sample.z - fit1_params[2]));
+		float C = (fit1_params[7] * (sample.x - fit1_params[0])) + (fit1_params[8] * (sample.y - fit1_params[1])) + (fit1_params[5]    *
+				(sample.z - fit1_params[2]));
+		float length = safe_sqrt(A * A + B * B + C * C);
+		residual = _params.radius - length;
+		fit1 += residual * residual;
+
+		A = (fit2_params[3]    * (sample.x - fit2_params[0])) + (fit2_params[6] * (sample.y - fit2_params[1])) + (fit2_params[7] *
+				(sample.z - fit2_params[2]));
+		B = (fit2_params[6] * (sample.x - fit2_params[0])) + (fit2_params[4]   * (sample.y - fit2_params[1])) + (fit2_params[8] *
+				(sample.z - fit2_params[2]));
+		C = (fit2_params[7] * (sample.x - fit2_params[0])) + (fit2_params[8] * (sample.y - fit2_params[1])) + (fit2_params[5]    *
+				(sample.z - fit2_params[2]));
+		length = safe_sqrt(A * A + B * B + C * C);
+		residual = _params.radius - length;
+		fit2 += residual * residual;
+	}
+
+	fit1 = safe_sqrt(fit1) / _samples_collected;
+	fit2 = safe_sqrt(fit2) / _samples_collected;
+
+	if (fit1 > _fitness && fit2 > _fitness) {
+		_sphere_lambda *= lma_damping;
+
+	} else if (fit2 < _fitness && fit2 < fit1) {
+		_sphere_lambda /= lma_damping;
+		memcpy(fit1_params, fit2_params, sizeof(fit1_params));
+		fitness = fit2;
+
+	} else if (fit1 < _fitness) {
+		fitness = fit1;
+	}
+
+	//--------------------Levenberg-Marquardt-part-ends-here--------------------------------//
+	if (isfinite(fitness) && fitness < _fitness) {
+		_fitness = fitness;
+		_params.offset.x = fit1_params[0];
+		_params.offset.y = fit1_params[1];
+		_params.offset.z = fit1_params[2];
+		_params.diag.x= fit1_params[3];
+		_params.diag.y = fit1_params[4];
+		_params.diag.z = fit1_params[5];
+		_params.offdiag.x= fit1_params[6];
+		_params.offdiag.y = fit1_params[7];
+		_params.offdiag.z = fit1_params[8];
+		return true;
+
+	} else {
+		return false;
+	}
+}
+
+// Returns calibrate_return_error if any parameter is not finite
+// Logs if parameters are out of range
+#define MAG_MAX_OFFSET_LEN 1300
+bool  CompassCalibrator::check_calibration_result(float offset_x, float offset_y, float offset_z,
+				float sphere_radius,
+				float diag_x, float diag_y, float diag_z,
+				float offdiag_x, float offdiag_y, float offdiag_z)
+{
+	float must_be_finite[] = {offset_x, offset_y, offset_z,
+							  sphere_radius,
+							  diag_x, diag_y, diag_z,
+							  offdiag_x, offdiag_y, offdiag_z};
+
+	float should_be_not_huge[] = {offset_x, offset_y, offset_z};
+	float should_be_positive[] = {sphere_radius, diag_x, diag_y, diag_z};
+
+	// Make sure every parameter is finite
+	const int num_finite = sizeof(must_be_finite) / sizeof(*must_be_finite);
+	for (unsigned i = 0; i < num_finite; ++i) {
+		if (!isfinite(must_be_finite[i])) {
+                        printf("ERROR: calibration (sphere NaN)");
+                        return false;
+		}
+	}
+
+	// Notify if offsets are too large
+	const int num_not_huge = sizeof(should_be_not_huge) / sizeof(*should_be_not_huge);
+	for (unsigned i = 0; i < num_not_huge; ++i) {
+		if (abs(should_be_not_huge[i]) > MAG_MAX_OFFSET_LEN) {
+			printf("Warning: mag with large offsets");
+			break;
+		}
+	}
+
+	// Notify if a parameter which should be positive is non-positive
+	const int num_positive = sizeof(should_be_positive) / sizeof(*should_be_positive);
+	for (unsigned i = 0; i < num_positive; ++i) {
+		if (should_be_positive[i] <= 0.0f) {
+			printf("Warning: mag with non-positive scale");
+			break;
+		}
+	}
+
+	return true;
+}
+
+#endif
 
 //////////////////////////////////////////////////////////
 //////////// CompassSample public interface //////////////
@@ -885,8 +1421,13 @@ bool CompassCalibrator::calculate_orientation(void)
     // re-run the fit to get the diagonals and off-diagonals for the
     // new orientation
     initialize_fit();
+#if APPLY_PX4_FIT_ALGORITHM ==0
     run_sphere_fit();
     run_ellipsoid_fit();
+#else
+    run_lm_sphere_fit(_fitness, _sphere_lambda);
+    run_lm_ellipsoid_fit(_fitness, _ellipsoid_lambda);
+#endif
     
     return fit_acceptable();
 }

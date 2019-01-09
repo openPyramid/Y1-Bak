@@ -1,5 +1,4 @@
 #pragma once
-
 #include <inttypes.h>
 
 #include <AP_Common/AP_Common.h>
@@ -9,10 +8,35 @@
 #include <AP_Param/AP_Param.h>
 #include <GCS_MAVLink/GCS_MAVLink.h>
 #include <AP_BattMonitor/AP_BattMonitor.h>
-
 #include "CompassCalibrator.h"
 #include "AP_Compass_Backend.h"
 #include "Compass_PerMotor.h"
+
+#if HAL_COMPASS_CALIB_SIDE236 == 1
+// The order of these cannot change since the calibration calculations depend on them in this order
+enum calib_orientation_t {
+        ORIENTATION_RIGHTSIDE_UP = 0,
+        ORIENTATION_TAIL_DOWN,
+        ORIENTATION_NOSE_DOWN,
+        ORIENTATION_LEFT,
+        ORIENTATION_RIGHT,
+        ORIENTATION_UPSIDE_DOWN,
+        ORIENTATION_ERROR
+};
+
+enum compass_group_prefit_status_t{
+    CAL_STA_STANBY = 0,
+    CAL_STA_ORIENT_DETECT,
+    CAL_STA_ROTATE_DETECT
+};
+
+#define MAG_CAL_STEP_TIMEOUT (COMPASS_CAL_INTERVAL_PERSIDE_MS*3)
+#endif
+
+#ifndef COMPASS_CAL_DEBUG
+#define COMPASS_CAL_DEBUG 0
+#endif
+
 
 // motor compensation types (for use with motor_comp_enabled)
 #define AP_COMPASS_MOT_COMP_DISABLED    0x00
@@ -32,6 +56,9 @@
 #endif
 #endif
 
+#ifndef HAL_COMPASS_CALIB_SIDE_MASK
+#define HAL_COMPASS_CALIB_SIDE_MASK 3
+#endif
 
 // define default compass calibration fitness and consistency checks
 #define AP_COMPASS_CALIBRATION_FITNESS_DEFAULT 16.0f
@@ -121,6 +148,7 @@ public:
     /// Return the current field as a Vector3f in milligauss
     const Vector3f &get_field(uint8_t i) const { return _state[i].field; }
     const Vector3f &get_field(void) const { return get_field(get_primary()); }
+//    const Vector3f &get_rawfield(uint8_t i) const { return _state[i].rawfield; }
 
     // compass calibrator interface
     void compass_cal_update();
@@ -449,6 +477,7 @@ private:
 
         // corrected magnetic field strength
         Vector3f    field;
+//        Vector3f    rawfield;
 
         // when we last got data
         uint32_t    last_update_ms;
@@ -474,6 +503,40 @@ private:
     AP_Int32 _driver_type_mask;
     
     AP_Int8 _filter_range;
+
+    AP_Int8 _sample_side_mask;                  //used for side236 calibrator, only support value of 3 11 63, to deside what type(2,3,6) of side sample being applied
+
+#if HAL_COMPASS_CALIB_SIDE236 == 1
+    void update_side_completed(calib_orientation_t& orient, const uint8_t side_mask_cmd, uint8_t& side_mask);
+
+    calib_orientation_t orientation_recognize_with_att(bool strict);
+    bool orientation_detect(calib_orientation_t& orient_final);
+    void rotation_detect_reset();
+    bool rotation_detect(calib_orientation_t& orient);
+    
+    uint8_t _completed_sides_mask;                          // 1 in one bit means that side procession is complete the order refer calib_orientation_t
+    compass_group_prefit_status_t _detect_sta = CAL_STA_STANBY;
+    calib_orientation_t _current_orient = ORIENTATION_ERROR;
+    uint32_t _calib_watchdog;
+    //orientation detect
+    uint16_t _time_inthr_ms;
+    uint32_t _time_lastcall_ms;
+    uint32_t _time_start_ms;
+    calib_orientation_t _last_orient;
+    bool _detect_finish = false;
+
+    //rotate detect
+    float _gyro_x_integral;
+    float _gyro_y_integral;
+    float _gyro_z_integral;
+    uint32_t _time_last_gyro;
+    bool _rotate_detect_finish = false;
+
+#if COMPASS_CAL_DEBUG
+    uint32_t _gcs_last_send_t;
+#endif
+
+#endif
 };
 
 namespace AP {
